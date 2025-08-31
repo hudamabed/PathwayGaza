@@ -16,7 +16,21 @@ A web platform designed for students in Gaza, providing a complete educational r
 
 
 ## 🛠 Tech Stack
-![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)  
-![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white)  
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)  
-![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=jsonwebtokens)  
+
+**Frontend:** ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)  
+**Backend:** ![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white)  
+**Database:** ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)  
+**Authentication:** ![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=jsonwebtokens)  
+
+
+## 🤝 Contributors
+
+<a href="https://github.com/hudamabed">
+  <img src="https://avatars.githubusercontent.com/hudamabed" width="80" style="border-radius:50%"/>
+</a>
+<a href="https://github.com/username2">
+  <img src="https://avatars.githubusercontent.com/username2" width="80" style="border-radius:50%"/>
+</a>
+<a href="https://github.com/username3">
+  <img src="https://avatars.githubusercontent.com/username3" width="80" style="border-radius:50%"/>
+</a>
