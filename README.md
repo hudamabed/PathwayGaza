@@ -24,7 +24,8 @@ A web platform designed for students in Gaza, providing a complete educational r
 
 
 ## 🤝 Contributors
-<div style="display: flex; gap: 20px; align-items: center;">
+
+<div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
 
   <div style="text-align: center;">
     <a href="https://github.com/hudamabed">
