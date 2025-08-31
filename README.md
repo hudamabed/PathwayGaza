@@ -22,37 +22,33 @@ A web platform designed for students in Gaza, providing a complete educational r
 **Database:** ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)  
 **Authentication:** ![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=jsonwebtokens)  
 
-
 ## 🤝 Contributors
 
-<div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-
-  <div style="text-align: center;">
-    <a href="https://github.com/hudamabed">
-      <img src="https://avatars.githubusercontent.com/hudamabed" width="80" style="border-radius:50%;" />
-    </a>
-    <div>Huda A'abed</div>
-  </div>
-
-  <div style="text-align: center;">
-    <a href="https://github.com/MahmoudKH02">
-      <img src="https://avatars.githubusercontent.com/MahmoudKH02" width="80" style="border-radius:50%;" />
-    </a>
-    <div>Mahmoud KH</div>
-  </div>
-
-  <div style="text-align: center;">
-    <a href="https://github.com/JenanOwies">
-      <img src="https://avatars.githubusercontent.com/JenanOwies" width="80" style="border-radius:50%;" />
-    </a>
-    <div>Jenan Owies</div>
-  </div>
-
-  <div style="text-align: center;">
-    <a href="https://github.com/salsabeelDwaikat">
-      <img src="https://avatars.githubusercontent.com/salsabeelDwaikat" width="80" style="border-radius:50%;" />
-    </a>
-    <div>Salsabeel Dwaikat</div>
-  </div>
-
-</div>
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/hudamabed">
+        <img src="https://avatars.githubusercontent.com/hudamabed" width="80" style="border-radius:50%;" />
+      </a>
+      <br>Huda A'abed
+    </td>
+    <td align="center">
+      <a href="https://github.com/MahmoudKH02">
+        <img src="https://avatars.githubusercontent.com/MahmoudKH02" width="80" style="border-radius:50%;" />
+      </a>
+      <br>Mahmoud KH
+    </td>
+    <td align="center">
+      <a href="https://github.com/JenanOwies">
+        <img src="https://avatars.githubusercontent.com/JenanOwies" width="80" style="border-radius:50%;" />
+      </a>
+      <br>Jenan Owies
+    </td>
+    <td align="center">
+      <a href="https://github.com/salsabeelDwaikat">
+        <img src="https://avatars.githubusercontent.com/salsabeelDwaikat" width="80" style="border-radius:50%;" />
+      </a>
+      <br>Salsabeel Dwaikat
+    </td>
+  </tr>
+</table>
