@@ -22,6 +22,7 @@ A web platform designed for students in Gaza, providing a complete educational r
 **Database:** ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)  
 **Authentication:** ![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=jsonwebtokens)  
 
+
 ## 🤝 Contributors
 
 <table>
@@ -52,3 +53,6 @@ A web platform designed for students in Gaza, providing a complete educational r
     </td>
   </tr>
 </table>
+
+
+
