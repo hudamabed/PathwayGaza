@@ -24,13 +24,34 @@ A web platform designed for students in Gaza, providing a complete educational r
 
 
 ## 🤝 Contributors
+<div style="display: flex; gap: 20px; align-items: center;">
 
-<a href="https://github.com/hudamabed">
-  <img src="https://avatars.githubusercontent.com/hudamabed" width="80" style="border-radius:50%"/>
-</a>
-<a href="https://github.com/username2">
-  <img src="https://avatars.githubusercontent.com/username2" width="80" style="border-radius:50%"/>
-</a>
-<a href="https://github.com/username3">
-  <img src="https://avatars.githubusercontent.com/username3" width="80" style="border-radius:50%"/>
-</a>
+  <div style="text-align: center;">
+    <a href="https://github.com/hudamabed">
+      <img src="https://avatars.githubusercontent.com/hudamabed" width="80" style="border-radius:50%;" />
+    </a>
+    <div>Huda A'abed</div>
+  </div>
+
+  <div style="text-align: center;">
+    <a href="https://github.com/MahmoudKH02">
+      <img src="https://avatars.githubusercontent.com/MahmoudKH02" width="80" style="border-radius:50%;" />
+    </a>
+    <div>Mahmoud KH</div>
+  </div>
+
+  <div style="text-align: center;">
+    <a href="https://github.com/JenanOwies">
+      <img src="https://avatars.githubusercontent.com/JenanOwies" width="80" style="border-radius:50%;" />
+    </a>
+    <div>Jenan Owies</div>
+  </div>
+
+  <div style="text-align: center;">
+    <a href="https://github.com/salsabeelDwaikat">
+      <img src="https://avatars.githubusercontent.com/salsabeelDwaikat" width="80" style="border-radius:50%;" />
+    </a>
+    <div>Salsabeel Dwaikat</div>
+  </div>
+
+</div>
