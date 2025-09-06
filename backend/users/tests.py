@@ -109,7 +109,7 @@ class UserAPITest(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
         # Update profile
-        response = self.client.put(
+        response = self.client.patch(
             url, {"username": "updateduser"}, format='json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["username"], "updateduser")

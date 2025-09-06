@@ -47,7 +47,7 @@ class ProfileView(APIView):
         operation_id="update_profile",
         operation_description="Update current user's profile"
     )
-    def put(self, request):
+    def patch(self, request):
         serializer = UserSerializer(
             request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
