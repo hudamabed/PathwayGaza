@@ -67,16 +67,17 @@ class UserAPITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 401)
 
-    # def test_profile_update(self):
-    #     url = reverse("profile")
-    #     # Login to get token
-    #     login_response = self.client.post(
-    #         reverse("login"), {"email": "hello@example.com", "password": "password123"})
-    #     print(login_response.data)
-    #     token = login_response.data["access"]
-    #     self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-    #     # Update profile
-    #     response = self.client.put(
-    #         url, {"username": "updateduser"}, format='json')
-    #     self.assertEqual(response.status_code, 200)
-    #     self.assertEqual(response.data["username"], "updateduser")
+    def test_profile_update(self):
+        url = reverse("profile")
+        
+        # Login to get token
+        login_response = self.client.post(
+            reverse("login"), {"email": "test@example.com", "password": "password123"})
+        token = login_response.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        
+        # Update profile
+        response = self.client.put(
+            url, {"username": "updateduser"}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["username"], "updateduser")

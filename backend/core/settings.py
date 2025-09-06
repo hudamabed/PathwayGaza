@@ -126,7 +126,6 @@ DATABASES = {
     }
 }
 
-# Add this in your settings.py for JWT support in Swagger UI:
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
         'Bearer': {
