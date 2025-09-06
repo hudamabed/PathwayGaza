@@ -21,6 +21,12 @@ class UserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+    def validate(self, attrs):
+        if "is_staff" in self.initial_data or "is_superuser" in self.initial_data:
+            raise serializers \
+                .ValidationError("Not allowed to set staff or superuser fields.")
+        return super().validate(attrs)
+
     def update(self, instance, validated_data):
         # allow updating username or email, but handle password correctly
         password = validated_data.pop("password", None)
