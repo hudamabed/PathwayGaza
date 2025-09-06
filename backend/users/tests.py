@@ -29,6 +29,13 @@ class UserSerializerTest(APITestCase):
         serializer = UserSerializer(data=data)
         self.assertFalse(serializer.is_valid())
 
+    def test_serializer_invalid_staff_data(self):
+        data = {"email": "user@test.com",
+                "username": "user1", "password": "pass123456",
+                "is_staff": True, "is_superuser": True}
+        serializer = UserSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+
 
 # API (Views) tests
 class UserAPITest(APITestCase):
@@ -45,18 +52,18 @@ class UserAPITest(APITestCase):
         self.assertEqual(reponse.status_code, 201)
         self.assertTrue(User.objects
                         .filter(email="hello@example.com").exists())
-        
+
     def test_signup_rejects_staff_parameters(self):
         url = reverse("signup")
         data = {"email": "hello@example.com",
                 "username": "hello", "password": "newpass123",
                 "is_staff": True, "is_superuser": True}
-        
+
         reponse = self.client.post(url, data, format='json')
 
         self.assertEqual(reponse.status_code, 400)
         self.assertFalse(User.objects
-                        .filter(email="hello@example.com").exists())
+                         .filter(email="hello@example.com").exists())
 
     def test_signup_missing_email(self):
         url = reverse("signup")
