@@ -4,12 +4,13 @@ from django.utils import timezone
 
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, email, username=None, password=None, **extra_fields):
+    def create_user(self, email, username, password=None, **extra_fields):
         if not email:
             raise ValueError("The Email field must be set")
+        if not username:
+            raise ValueError("The Username field must be set")
+        
         email = self.normalize_email(email)
-
-        # Ensure standard fields are set
         extra_fields.setdefault('is_active', True)
 
         user = self.model(
@@ -40,7 +41,7 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
-    username = models.CharField(max_length=150, blank=True, null=True)
+    username = models.CharField(max_length=150, unique=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     is_active = models.BooleanField(default=True)

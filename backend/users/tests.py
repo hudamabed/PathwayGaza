@@ -46,9 +46,22 @@ class UserAPITest(APITestCase):
         self.assertTrue(User.objects
                         .filter(email="hello@example.com").exists())
 
-    def test_signup_invalid_data(self):
+    def test_signup_missing_email(self):
         url = reverse("signup")
         data = {"username": "hello", "password": "short"}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_signup_missing_username(self):
+        url = reverse("signup")
+        data = {"email": "hello@example.com", "password": "newpass123"}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_signup_used_username(self):
+        url = reverse("signup")
+        data = {"email": "hello@example.com",
+                "username": "testuser", "password": "newpass123"}
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, 400)
 
@@ -69,13 +82,13 @@ class UserAPITest(APITestCase):
 
     def test_profile_update(self):
         url = reverse("profile")
-        
+
         # Login to get token
         login_response = self.client.post(
             reverse("login"), {"email": "test@example.com", "password": "password123"})
         token = login_response.data["access"]
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        
+
         # Update profile
         response = self.client.put(
             url, {"username": "updateduser"}, format='json')
