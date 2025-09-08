@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'drf_yasg',
 
     # local apps
-    # 'lessons',
+    'learning',
     # 'progress',
     # 'quizzes',
     'users',

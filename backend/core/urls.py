@@ -37,6 +37,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
+    path('api/learning/', include('learning.urls')),
     path(
         'health/',
         lambda request: JsonResponse({'status': 'ok'}), name='health_check',
