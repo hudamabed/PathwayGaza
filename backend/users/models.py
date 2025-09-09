@@ -4,25 +4,31 @@ from django.utils import timezone
 
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, email, username, password=None, **extra_fields):
+    def create_user(self, email, username, password=None, firebase_uid=None, **extra_fields):
         if not email:
             raise ValueError("The Email field must be set")
         if not username:
             raise ValueError("The Username field must be set")
-        
+
         email = self.normalize_email(email)
-        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault("is_active", True)
 
         user = self.model(
             email=email,
             username=username,
+            firebase_uid=firebase_uid,
             **extra_fields
         )
 
         if password:
-            user.set_password(password)  # hashes the password
+            # Local user
+            user.set_password(password)
+        elif firebase_uid:
+            # Firebase-managed user, no password
+            user.set_unusable_password()
         else:
-            user.set_unusable_password()  # ensures user can't login without a password
+            raise ValueError(
+                "Either a password or firebase_uid must be provided")
 
         user.save(using=self._db)
         return user
@@ -43,6 +49,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     username = models.CharField(max_length=150, unique=True)
     created_at = models.DateTimeField(default=timezone.now)
+    firebase_uid = models.CharField(
+        max_length=128, unique=True, null=True, blank=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

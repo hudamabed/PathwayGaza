@@ -57,3 +57,7 @@ build/
 dist/
 *.egg-info/
 pip-wheel-metadata/
+
+# Firebase service account
+*.json
+firebase_credentials.json
