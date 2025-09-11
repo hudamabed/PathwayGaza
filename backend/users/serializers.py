@@ -5,43 +5,35 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
-    # Make password optional now, because Firebase users won’t have it
-    password = serializers.CharField(
-        write_only=True, required=False, min_length=8
+    grade_id = serializers.PrimaryKeyRelatedField(
+        source="grade",
+        queryset=User._meta.get_field(
+            "grade").remote_field.model.objects.all(),
+        required=False,
+        allow_null=True,
     )
 
     class Meta:
         model = User
-        fields = ["id", "email", "username", "password", "created_at"]
-        read_only_fields = ["id", "created_at"]
-
-    def create(self, validated_data):
-        # Only set password if provided
-        password = validated_data.pop("password", None)
-        user = User(**validated_data)
-
-        if password:
-            user.set_password(password)  # local user (superuser/admin)
-        else:
-            # Firebase-managed user: make password unusable
-            user.set_unusable_password()
-
-        user.save()
-        return user
-
-    def validate(self, attrs):
-        # Prevent clients from setting staff/superuser fields
-        if "is_staff" in self.initial_data or "is_superuser" in self.initial_data:
-            raise serializers.ValidationError(
-                "Not allowed to set staff or superuser fields."
-            )
-        return super().validate(attrs)
+        fields = ["id", "email", "username",
+                  "birth_date", "grade_id", "created_at"]
+        read_only_fields = ["id", "created_at", "email"]
 
     def update(self, instance, validated_data):
-        # Only allow username to be updated
+        # Update username if provided
         username = validated_data.get("username")
-
-        if username != None and username != instance.username:
+        if username is not None and username != instance.username:
             instance.username = username
-            instance.save(update_fields=["username"])
+
+        # Update birth_date if provided
+        birth_date = validated_data.get("birth_date")
+        if birth_date is not None:
+            instance.birth_date = birth_date
+
+        # Update grade if provided
+        grade = validated_data.get("grade")
+        if grade is not None:
+            instance.grade = grade
+
+        instance.save(update_fields=["username", "birth_date", "grade"])
         return instance

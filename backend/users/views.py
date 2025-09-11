@@ -17,7 +17,8 @@ class ProfileView(APIView):
 
     @swagger_auto_schema(
         operation_id="get_profile",
-        operation_description="Retrieve current user's profile"
+        operation_description="Retrieve current user's profile",
+        responses={200: UserSerializer},
     )
     def get(self, request):
         serializer = UserSerializer(request.user)
@@ -25,7 +26,9 @@ class ProfileView(APIView):
 
     @swagger_auto_schema(
         operation_id="update_profile",
-        operation_description="Update current user's profile"
+        operation_description="Update current user's profile (username, grade, birthdate)",
+        request_body=UserSerializer,
+        responses={200: UserSerializer}
     )
     def patch(self, request):
         serializer = UserSerializer(
@@ -44,20 +47,20 @@ class ProfileView(APIView):
                     firebase_uid,
                     display_name=new_display_name
                 )
-                print(f"Firebase displayName updated successfully for UID: {firebase_uid}")
+                print(
+                    f"Firebase displayName updated successfully for UID: {firebase_uid}")
 
             except ValueError as e:
-                # Handle Firebase errors gracefully
-                print(f"Error updating Firebase displayName for UID {firebase_uid}: {e}")
+                print(f"Error updating Firebase for UID {firebase_uid}: {e}")
                 return Response(
-                    "the specified user ID or properties are invalid.",
+                    "The specified user ID or properties are invalid.",
                     status=status.HTTP_400_BAD_REQUEST
                 )
             except Exception as e:
-                print(f"Error updating Firebase displayName for UID {firebase_uid}: {e}")
+                print(f"Error updating Firebase for UID {firebase_uid}: {e}")
                 return Response(
-                    "this user is not registered on Firebase",
+                    "This user is not registered on Firebase.",
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
+        return Response(serializer.data, status=status.HTTP_200_OK)

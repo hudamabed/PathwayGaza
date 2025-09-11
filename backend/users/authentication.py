@@ -2,7 +2,9 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework import exceptions
 from firebase_admin import auth as firebase_auth
 from django.utils import timezone
-from .models import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class FirebaseAuthentication(BaseAuthentication):
@@ -60,10 +62,10 @@ class FirebaseAuthentication(BaseAuthentication):
             user.email = email
             update_fields.append("email")
 
+        if update_fields:
             user.last_login = timezone.now()
             update_fields.append("last_login")
 
-        if update_fields:
             user.save(update_fields=update_fields)
 
         # Return a (user, auth) tuple — DRF expects this

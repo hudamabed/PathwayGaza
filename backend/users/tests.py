@@ -12,6 +12,8 @@ User = get_user_model()
 # --------------------------
 # Model Tests
 # --------------------------
+
+
 class UserModelTest(TestCase):
     def test_create_local_superuser(self):
         user = User.objects.create_superuser(
@@ -37,42 +39,37 @@ class UserModelTest(TestCase):
 # Serializer Tests
 # --------------------------
 class UserSerializerTest(APITestCase):
-    def test_serializer_valid_data_for_local_user(self):
-        data = {"email": "user@test.com",
-                "username": "user1", "password": "pass123456"}
-        serializer = UserSerializer(data=data)
-        self.assertTrue(serializer.is_valid())
-
-    def test_serializer_invalid_data_short_password(self):
-        data = {"email": "user@test.com",
-                "username": "user1", "password": "pass123"}
-        serializer = UserSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-
-    def test_serializer_invalid_staff_data(self):
-        data = {
-            "email": "user@test.com",
-            "username": "user1",
-            "password": "pass123456",
-            "is_staff": True,
-            "is_superuser": True
-        }
-        serializer = UserSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-
-    def test_serializer_update_only_username(self):
+    def test_serializer_returns_expected_fields(self):
+        # Include birth_date and grade_id in the expected fields
         user = User.objects.create_user(
-            email="firebase@example.com",
-            username="oldname",
-            firebase_uid='testme',
+            email="user@test.com", username="user1", firebase_uid="abc123"
         )
-        serializer = UserSerializer(
-            user, data={"username": "newname", "email": "hacker@test.com"}, partial=True)
-        serializer.is_valid(raise_exception=True)
-        updated_user = serializer.save()
-        self.assertEqual(updated_user.username, "newname")
-        # email unchanged
-        self.assertEqual(updated_user.email, "firebase@example.com")
+        serializer = UserSerializer(instance=user)
+        self.assertEqual(set(serializer.data.keys()), {
+            "id", "email", "username", "birth_date", "grade_id", "created_at"
+        })
+
+    def test_serializer_update_username_birthdate_grade(self):
+        # Create a grade for testing
+        from learning.models import Grade
+        grade = Grade.objects.create(name="Grade 1")
+
+        user = User.objects.create_user(
+            email="user@test.com", username="oldname", firebase_uid="abc123"
+        )
+        data = {
+            "username": "newname",
+            "birth_date": "2010-05-20",
+            "grade_id": grade.id
+        }
+        serializer = UserSerializer(instance=user, data=data, partial=True)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        user.refresh_from_db()
+        self.assertEqual(user.username, "newname")
+        self.assertEqual(user.birth_date.isoformat(), "2010-05-20")
+        self.assertEqual(user.grade, grade)
 
 
 # --------------------------
@@ -95,28 +92,37 @@ class UserAPITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 401)
 
-    def test_profile_update_username(self):
+    def test_profile_update_all_fields(self):
         self.client.force_authenticate(user=self.superuser)
 
+        from learning.models import Grade
+        grade = Grade.objects.create(name="Grade 2")
+
         url = reverse("profile")
-        response = self.client.patch(
-            url, {"username": "updateduser"}, format="json")
+        data = {
+            "username": "updateduser",
+            "birth_date": "2009-01-01",
+            "grade_id": grade.id
+        }
+        response = self.client.patch(url, data, format="json")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["username"], "updateduser")
 
-    def test_cannot_update_email_or_password(self):
+        user = User.objects.get(pk=self.superuser.pk)
+        self.assertEqual(user.username, "updateduser")
+        self.assertEqual(user.birth_date.isoformat(), "2009-01-01")
+        self.assertEqual(user.grade, grade)
+
+    def test_cannot_update_email(self):
         self.client.force_authenticate(user=self.superuser)
         url = reverse("profile")
         response = self.client.patch(
-            url, {"email": "new@example.com", "password": "newpass123"}, format="json"
-        )
+            url, {"email": "new@example.com"}, format="json")
 
         self.assertEqual(response.status_code, 200)
         user = User.objects.get(pk=self.superuser.pk)
         self.assertEqual(user.email, "admin@example.com")  # unchanged
-        self.assertTrue(user.check_password("adminpass123"))  # unchanged
 
-    def test_profile_get_does_not_change_username(self):
+    def test_profile_get_does_not_change_eamil(self):
         # Simulate a GET request (profile view triggers get_or_create)
         self.client.force_authenticate(user=self.superuser)
         url = reverse("profile")
@@ -127,5 +133,5 @@ class UserAPITest(APITestCase):
 
         # Reload user from DB
         user.refresh_from_db()
-        # Ensure username is unchanged
-        self.assertEqual(user.username, "adminuser")
+        # Ensure email is unchanged
+        self.assertEqual(user.email, "admin@example.com")

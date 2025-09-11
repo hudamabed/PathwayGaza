@@ -51,6 +51,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     created_at = models.DateTimeField(default=timezone.now)
     firebase_uid = models.CharField(
         max_length=128, unique=True, null=True, blank=True)
+    birth_date = models.DateField(null=True, blank=True)
+    grade = models.ForeignKey(
+        "learning.Grade",  # app_label.ModelName
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="users"
+    )
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

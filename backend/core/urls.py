@@ -22,6 +22,7 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
+
 schema_view = get_schema_view(
     openapi.Info(
         title="PathwayGaza API",
@@ -33,6 +34,17 @@ schema_view = get_schema_view(
     public=True,
     permission_classes=(permissions.AllowAny,),
 )
+
+schema_view.security_definitions = {
+    "Bearer": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header",
+        "description": "Paste the full value including 'Bearer'. Example:\n\n"
+                       "`Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...`",
+    }
+}
+schema_view.security = [{"Bearer": []}]
 
 urlpatterns = [
     path('admin/', admin.site.urls),
