@@ -56,21 +56,27 @@ INSTALLED_APPS = [
 
 # DRF config
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "users.authentication.FirebaseAuthentication",
+        # "rest_framework.authentication.SessionAuthentication",  # for admin/superusers
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
 }
 
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # short-lived
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),     # long-lived
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "AUTH_HEADER_TYPES": ("Bearer",),
-}
+AUTHENTICATION_BACKENDS = (
+    "django.contrib.auth.backends.ModelBackend",  # for admin/superusers
+)
+
+# SIMPLE_JWT = {
+#     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # short-lived
+#     "REFRESH_TOKEN_LIFETIME": timedelta(days=3),     # long-lived
+#     "ROTATE_REFRESH_TOKENS": True,
+#     "BLACKLIST_AFTER_ROTATION": True,
+#     "AUTH_HEADER_TYPES": ("Bearer",),
+# }
 
 
 AUTH_USER_MODEL = 'users.User'  # custom user model
