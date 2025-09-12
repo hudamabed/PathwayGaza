@@ -13,6 +13,7 @@ class Grade(models.Model):
 class Course(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    image_url = models.URLField(null=True, blank=True)
 
     # relations (FKs)
     grade = models.ForeignKey(
@@ -39,26 +40,6 @@ class Lesson(models.Model):
 
     def __str__(self):
         return f"{self.title} (Course: {self.course.name})"
-
-
-class CourseEnrollment(models.Model):
-    start_date = models.DateTimeField(auto_now_add=True)
-    finish_date = models.DateTimeField(null=True, blank=True)
-
-    # relations (FKs)
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='enrollments'
-    )
-    course = models.ForeignKey(
-        Course, on_delete=models.CASCADE, related_name='enrollments')
-
-    class Meta:
-        unique_together = ('user', 'course')
-
-    def __str__(self):
-        return f'{self.user} Enrolled in {self.course}'
 
 
 class LessonProgress(models.Model):
