@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.db import IntegrityError
 from django.contrib.auth import get_user_model
 
-from .models import Grade, Course, Lesson, LessonProgress
+from .models import Grade, Course, Lesson
 
 
 User = get_user_model()
@@ -13,8 +13,6 @@ User = get_user_model()
 # ---------------------
 # Learning Models Tests
 # ---------------------
-
-
 class LearningModelsTest(TestCase):
     def setUp(self):
         # Create user
@@ -98,30 +96,6 @@ class LearningModelsTest(TestCase):
         self.assertIn("Math 101", str(self.course1))
         self.assertIn("Addition", str(self.lesson1))
 
-    # ---------- Tests for Progress ----------
-    def test_lesson_progress_creation(self):
-        progress = LessonProgress.objects.create(
-            user=self.user,
-            lesson=self.lesson1,
-            is_completed=False
-        )
-        self.assertEqual(progress.user, self.user)
-        self.assertEqual(progress.lesson, self.lesson1)
-        self.assertFalse(progress.is_completed)
-        self.assertIsNotNone(progress.last_accessed)
-        self.assertIn("In Progress", str(progress))
-
-    def test_lesson_progress_mark_completed(self):
-        progress = LessonProgress.objects.create(
-            user=self.user,
-            lesson=self.lesson2,
-            is_completed=False
-        )
-        progress.is_completed = True
-        progress.save()
-        self.assertTrue(progress.is_completed)
-        self.assertIn("Completed", str(progress))
-
 
 class LearningAPITestCase(APITestCase):
 
@@ -177,48 +151,3 @@ class LearningAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]["title"], self.lesson1.title)
-
-    # ---------------------------
-    # Lesson progress lifecycle
-    # ---------------------------
-    def test_lesson_progress_crud(self):
-        self.client.force_authenticate(self.student)
-        url = reverse("lesson-progress", args=[self.lesson1.id])
-
-        # GET before starting → 404
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-        # POST → start lesson
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertFalse(response.data["is_completed"])
-
-        # GET → now returns progress
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(response.data["is_completed"])
-
-        # PATCH → complete lesson
-        response = self.client.patch(
-            url, {"is_completed": True}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["is_completed"])
-
-        # PATCH again → mark incomplete (optional)
-        response = self.client.patch(
-            url, {"is_completed": False}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(response.data["is_completed"])
-
-    # ---------------------------
-    # Finish lesson not started
-    # ---------------------------
-    def test_patch_lesson_not_started(self):
-        self.client.force_authenticate(self.student)
-        url = reverse("lesson-progress", args=[self.lesson2.id])
-
-        response = self.client.patch(
-            url, {"is_completed": True}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIsNotNone(response.data.get("detail"))

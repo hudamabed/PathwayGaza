@@ -3,7 +3,6 @@ from .views import (
     GradeListView,
     StudentCoursesListView, 
     LessonListView,
-    LessonProgressView,
 )
 
 urlpatterns = [
@@ -19,7 +18,4 @@ urlpatterns = [
     # Get all lessons within a specific course
     path('courses/<int:course_id>/lessons/',
          LessonListView.as_view(), name='lesson-list'),
-
-    path('lessons/<int:lesson_id>/progress/',
-         LessonProgressView.as_view(), name='lesson-progress'),
 ]

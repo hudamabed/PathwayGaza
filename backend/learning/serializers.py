@@ -1,7 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-
-from .models import Grade, Course, Lesson, LessonProgress
+from .models import Grade, Course, Lesson
 
 
 # ---------------------------
@@ -41,26 +39,3 @@ class CourseSerializer(serializers.ModelSerializer):
     def get_lessons_count(self, obj):
         # obj is the Course instance
         return obj.lessons.count()
-
-
-# ---------------------------
-# Lesson Progress Serializer
-# ---------------------------
-class LessonProgressSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField(read_only=True)
-    lesson = LessonSerializer(read_only=True)
-    lesson_id = serializers.PrimaryKeyRelatedField(
-        queryset=Lesson.objects.all(), source='lesson', write_only=True
-    )
-
-    class Meta:
-        model = LessonProgress
-        fields = ['id', 'user', 'lesson', 'lesson_id',
-                  'is_completed', 'last_accessed']
-
-
-class LessonProgressUpdateSerializer(serializers.Serializer):
-    is_completed = serializers.BooleanField(
-        required=True,
-        help_text="Set to true to mark the lesson as completed"
-    )

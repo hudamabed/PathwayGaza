@@ -50,6 +50,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
     path('api/learning/', include('learning.urls')),
+    path('api/progress/', include('progress.urls')),
     path(
         'health/',
         lambda request: JsonResponse({'status': 'ok'}), name='health_check',

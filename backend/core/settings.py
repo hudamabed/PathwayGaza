@@ -49,7 +49,7 @@ INSTALLED_APPS = [
 
     # local apps
     'learning',
-    # 'progress',
+    'progress',
     # 'quizzes',
     'users',
 ]
