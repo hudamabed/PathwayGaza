@@ -99,11 +99,12 @@ class ProgressAPITest(APITestCase):
         self.lesson2 = Lesson.objects.create(
             title="Lesson 2", order=2, course=self.course1)
 
+        self.client.force_authenticate(self.student)
+
     # ---------------------------
     # Lesson progress lifecycle
     # ---------------------------
     def test_lesson_progress_crud(self):
-        self.client.force_authenticate(self.student)
         url = reverse("lesson-progress", args=[self.lesson1.id])
 
         # GET before starting → 404
@@ -126,20 +127,99 @@ class ProgressAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["is_completed"])
 
-        # PATCH again → mark incomplete (optional)
+        # PATCH again → mark incomplete
         response = self.client.patch(
             url, {"is_completed": False}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data["is_completed"])
 
-    # ---------------------------
-    # Finish lesson not started
-    # ---------------------------
     def test_patch_lesson_not_started(self):
-        self.client.force_authenticate(self.student)
         url = reverse("lesson-progress", args=[self.lesson2.id])
-
         response = self.client.patch(
             url, {"is_completed": True}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIsNotNone(response.data.get("detail"))
+
+    # ---------------------------
+    # Course-level progress
+    # ---------------------------
+    def test_course_progress_view(self):
+        # Start only lesson1
+        LessonProgress.objects.create(
+            user=self.student, lesson=self.lesson1, is_completed=True)
+
+        url = reverse("course-progress", args=[self.course1.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Both lesson progresses should appear
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]["lesson"]["id"], self.lesson1.id)
+        self.assertEqual(response.data[1]["lesson"]["id"], self.lesson2.id)
+        self.assertIsNotNone(response.data[1].get("is_completed"))
+        self.assertTrue(response.data[0].get("is_completed"))
+        self.assertFalse(response.data[1].get("is_completed"))
+
+    # ---------------------------
+    # Overall progress summary
+    # ---------------------------
+    def test_overall_progress_summary(self):
+        # No progress yet
+        url = reverse("overall-progress-summary")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_lessons"], 2)
+        self.assertEqual(response.data["completed_lessons"], 0)
+        self.assertEqual(response.data["completion_percentage"], 0.0)
+
+        # Complete one lesson
+        LessonProgress.objects.create(
+            user=self.student, lesson=self.lesson1, is_completed=True
+        )
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["completed_lessons"], 1)
+        self.assertEqual(response.data["completion_percentage"], 50.0)
+
+    def test_overall_progress_no_grade(self):
+        user_no_grade = User.objects.create_user(
+            email="no_grade@example.com",
+            username="nograde",
+            firebase_uid="nograde_uid",
+            grade=None
+        )
+        self.client.force_authenticate(user_no_grade)
+        url = reverse("overall-progress-summary")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # ---------------------------
+    # Last activity view
+    # ---------------------------
+    def test_last_activity_view(self):
+        # Create progress records with different access times
+        p1 = LessonProgress.objects.create(
+            user=self.student, lesson=self.lesson1)
+        p2 = LessonProgress.objects.create(
+            user=self.student, lesson=self.lesson2)
+
+        url = reverse("last-activity")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Should return 2 items ordered by last_accessed desc
+        self.assertEqual(len(response.data), 2)
+        self.assertCountEqual(
+            [item["lesson"]["id"] for item in response.data],
+            [p1.lesson.id, p2.lesson.id]
+        )
+
+    def test_last_activity_with_limit(self):
+        LessonProgress.objects.create(user=self.student, lesson=self.lesson1)
+        LessonProgress.objects.create(user=self.student, lesson=self.lesson2)
+
+        url = reverse("last-activity")
+        response = self.client.get(url, {"limit": 1})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)

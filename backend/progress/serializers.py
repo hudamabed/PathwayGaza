@@ -26,3 +26,17 @@ class LessonProgressUpdateSerializer(serializers.Serializer):
         required=True,
         help_text="Set to true to mark the lesson as completed"
     )
+
+
+class OverallProgressSerializer(serializers.Serializer):
+    total_lessons = serializers.IntegerField()
+    completed_lessons = serializers.IntegerField()
+    completion_percentage = serializers.FloatField()
+
+
+class LastActivitySerializer(serializers.ModelSerializer):
+    lesson = LessonSerializer(read_only=True)
+
+    class Meta:
+        model = LessonProgress
+        fields = ["id", "lesson", "is_completed", "last_accessed"]
