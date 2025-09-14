@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.manifest
+*.spec
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+*.mo
+*.db
+*.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+env.bak/
+env/
+.idea/
+.vscode/
+*.swp
+
+# Migrations (optional - usually keep them in Git!)
+# */migrations/*
+# !*/migrations/__init__.py
+
+# Coverage / testing
+.coverage
+.tox/
+.nox/
+htmlcov/
+.coverage.*
+.pytest_cache/
+.cache/
+
+# OS / IDE files
+.DS_Store
+Thumbs.db
+*.sublime-workspace
+*.sublime-project
+
+# Build
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Firebase service account
+*.json
+firebase_credentials.json
