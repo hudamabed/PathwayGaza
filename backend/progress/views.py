@@ -100,7 +100,7 @@ class CourseProgressView(APIView):
     @swagger_auto_schema(
         operation_id="get_course_lessons_progress_list",
         operation_description="Retrieve the authenticated user's progress for all lessons in a given course. \
-            If no progress exists, return lesson with is_completed=True, and id=None",
+            If no progress exists, return lesson with is_completed=False, and id=None",
         responses={200: LessonProgressSerializer(many=True)},
     )
     def get(self, request, course_id):
