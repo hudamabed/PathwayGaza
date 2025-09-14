@@ -1,13 +1,18 @@
 from django.test import TestCase
-from django.contrib.auth import get_user_model
+from rest_framework.test import APITestCase
+from rest_framework import status
+from django.urls import reverse
 from django.db import IntegrityError
+from django.contrib.auth import get_user_model
 
-from .models import Grade, Course, Lesson, CourseEnrollment, LessonProgress
+from .models import Grade, Course, Lesson
 
 
 User = get_user_model()
 
-
+# ---------------------
+# Learning Models Tests
+# ---------------------
 class LearningModelsTest(TestCase):
     def setUp(self):
         # Create user
@@ -25,6 +30,7 @@ class LearningModelsTest(TestCase):
         self.course1 = Course.objects.create(
             name="Math 101",
             description="Basic Math",
+            image_url="helloworld.com",
             grade=self.grade1
         )
         self.course2 = Course.objects.create(
@@ -90,37 +96,58 @@ class LearningModelsTest(TestCase):
         self.assertIn("Math 101", str(self.course1))
         self.assertIn("Addition", str(self.lesson1))
 
-    # ---------- Tests for Enrollments & Progress ----------
 
-    def test_course_enrollment_creation(self):
-        enrollment = CourseEnrollment.objects.create(
-            user=self.user,
-            course=self.course1
-        )
-        self.assertEqual(enrollment.user, self.user)
-        self.assertEqual(enrollment.course, self.course1)
-        self.assertIsNotNone(enrollment.start_date)
-        self.assertIn("enrolled", str(enrollment).lower())
+class LearningAPITestCase(APITestCase):
 
-    def test_lesson_progress_creation(self):
-        progress = LessonProgress.objects.create(
-            user=self.user,
-            lesson=self.lesson1,
-            is_completed=False
-        )
-        self.assertEqual(progress.user, self.user)
-        self.assertEqual(progress.lesson, self.lesson1)
-        self.assertFalse(progress.is_completed)
-        self.assertIsNotNone(progress.last_accessed)
-        self.assertIn("In Progress", str(progress))
+    def setUp(self):
+        # Create grades
+        self.grade1 = Grade.objects.create(name="Grade 1")
+        self.grade2 = Grade.objects.create(name="Grade 2")
 
-    def test_lesson_progress_mark_completed(self):
-        progress = LessonProgress.objects.create(
-            user=self.user,
-            lesson=self.lesson2,
-            is_completed=False
+        # Create users
+        self.student = User.objects.create_user(
+            email="student@example.com",
+            username="student",
+            firebase_uid="test_uid",
+            grade=self.grade1
         )
-        progress.is_completed = True
-        progress.save()
-        self.assertTrue(progress.is_completed)
-        self.assertIn("Completed", str(progress))
+
+        # Create courses
+        self.course1 = Course.objects.create(name="Math", grade=self.grade1)
+        self.course2 = Course.objects.create(name="Science", grade=self.grade2)
+
+        # Create lessons
+        self.lesson1 = Lesson.objects.create(
+            title="Lesson 1", order=1, course=self.course1)
+        self.lesson2 = Lesson.objects.create(
+            title="Lesson 2", order=2, course=self.course1)
+
+    # ---------------------------
+    # Grades
+    # ---------------------------
+    def test_get_grades(self):
+        url = reverse("grade-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    # ---------------------------
+    # Student courses
+    # ---------------------------
+    def test_student_courses_list(self):
+        self.client.force_authenticate(self.student)
+        url = reverse("course-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], self.course1.name)
+
+    # ---------------------------
+    # Lessons in a course
+    # ---------------------------
+    def test_get_lessons_in_course(self):
+        url = reverse("lesson-list", args=[self.course1.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]["title"], self.lesson1.title)
