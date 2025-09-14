@@ -7,11 +7,11 @@ from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
 
 
-from .models import Grade, Course
+from .models import Grade, Course, Unit
 from .serializers import (
     GradeSerializer,
     CourseSerializer,
-    LessonSerializer
+    UnitWithLessonsSerializer,
 )
 
 User = get_user_model()
@@ -53,16 +53,6 @@ class StudentCoursesListView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# class CourseListView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def get(self, request, grade_id):
-#         grade = get_object_or_404(Grade, id=grade_id)
-#         courses = grade.courses.all()
-#         serializer = CourseSerializer(courses, many=True)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
 # ---------------------------
 # Get lessons within a certain course
 # ---------------------------
@@ -72,11 +62,10 @@ class LessonListView(APIView):
     @swagger_auto_schema(
         operation_id="get_lessons_list",
         operation_description="Retrieve all lessons for a certain course",
-        responses={200: LessonSerializer(many=True)},
+        responses={200: UnitWithLessonsSerializer(many=True)},
     )
     def get(self, request, course_id):
         course = get_object_or_404(Course, id=course_id)
-        lessons = course.lessons.all()
-        serializer = LessonSerializer(lessons, many=True)
+        units = Unit.objects.filter(lessons__course=course_id).distinct()
+        serializer = UnitWithLessonsSerializer(units, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    

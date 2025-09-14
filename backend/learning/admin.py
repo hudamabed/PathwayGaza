@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Grade, Course, Lesson
+from .models import Grade, Course, Lesson, Unit
 
 
 class LessonInline(admin.TabularInline):
@@ -20,7 +20,13 @@ class CourseAdmin(admin.ModelAdmin):
     list_display = ("name", "grade", "description")
     list_filter = ("grade",)  # filter courses by grade in admin sidebar
     search_fields = ("name", "description")
-    inlines = [LessonInline]
+
+
+@admin.register(Unit)
+class UnitAdmin(admin.ModelAdmin):
+    list_display = ("title", "description")
+    search_fields = ("title", "description")
+    # inlines = [LessonInline]
 
 
 @admin.register(Lesson)

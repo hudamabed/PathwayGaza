@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Grade, Course, Lesson
+from .models import Grade, Course, Lesson, Unit
 
 
 # ---------------------------
@@ -11,13 +11,18 @@ class GradeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description']
 
 
-# ---------------------------
-# Lesson Serializer
-# ---------------------------
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = ['id', 'title', 'order', 'document_link', 'course']
+
+
+class UnitWithLessonsSerializer(serializers.ModelSerializer):
+    lessons = LessonSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Unit
+        fields = ['id', 'title', 'description', 'lessons']
 
 
 # ---------------------------
