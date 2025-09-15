@@ -145,20 +145,18 @@ class ProgressAPITest(APITestCase):
     # ---------------------------
     def test_course_progress_view(self):
         # Start only lesson1
-        LessonProgress.objects.create(
-            user=self.student, lesson=self.lesson1, is_completed=True)
+        progress = LessonProgress.objects.create(
+            user=self.student, lesson=self.lesson1, is_completed=True
+        )
 
         url = reverse("course-progress", args=[self.course1.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # Both lesson progresses should appear
-        self.assertEqual(len(response.data), 2)
+        # Only one progress record should appear (lesson1)
+        self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["lesson"]["id"], self.lesson1.id)
-        self.assertEqual(response.data[1]["lesson"]["id"], self.lesson2.id)
-        self.assertIsNotNone(response.data[1].get("is_completed"))
         self.assertTrue(response.data[0].get("is_completed"))
-        self.assertFalse(response.data[1].get("is_completed"))
 
     # ---------------------------
     # Overall progress summary

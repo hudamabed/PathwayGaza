@@ -12,17 +12,24 @@ class GradeSerializer(serializers.ModelSerializer):
 
 
 class LessonSerializer(serializers.ModelSerializer):
+    unit = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'order', 'document_link', 'course']
+        fields = ['id', 'title', 'order', 'document_link', 'unit']
 
 
 class UnitWithLessonsSerializer(serializers.ModelSerializer):
     lessons = LessonSerializer(many=True, read_only=True)
+    course = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Unit
-        fields = ['id', 'title', 'description', 'lessons']
+        fields = ['id', 'title', 'description', 'course',
+                  'order', 'lessons']
+        
+    def get_course(self, obj):
+        return obj.course.id if obj else None
 
 
 # ---------------------------
@@ -42,5 +49,4 @@ class CourseSerializer(serializers.ModelSerializer):
                   'grade_id', 'lessons_count']
 
     def get_lessons_count(self, obj):
-        # obj is the Course instance
-        return obj.lessons.count()
+        return Lesson.objects.filter(unit__course=obj).count()

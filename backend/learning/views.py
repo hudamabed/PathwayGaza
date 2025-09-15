@@ -47,11 +47,16 @@ class StudentCoursesListView(APIView):
         responses={200: CourseSerializer(many=True)},
     )
     def get(self, request):
-        grade = get_object_or_404(Grade, id=request.user.grade.id)
+        if not request.user.grade:
+            return Response(
+                {"detail": "User is not enrolled in any grade."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        grade = request.user.grade
         courses = grade.courses.all()
         serializer = CourseSerializer(courses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 # ---------------------------
 # Get lessons within a certain course
@@ -61,11 +66,11 @@ class LessonListView(APIView):
 
     @swagger_auto_schema(
         operation_id="get_lessons_list",
-        operation_description="Retrieve all lessons for a certain course",
+        operation_description="Retrieve all lessons for a certain course, grouped by unit",
         responses={200: UnitWithLessonsSerializer(many=True)},
     )
     def get(self, request, course_id):
         course = get_object_or_404(Course, id=course_id)
-        units = Unit.objects.filter(lessons__course=course_id).distinct()
+        units = Unit.objects.filter(course=course).prefetch_related("lessons")
         serializer = UnitWithLessonsSerializer(units, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

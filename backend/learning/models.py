@@ -25,6 +25,17 @@ class Course(models.Model):
 class Unit(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(
+        help_text="Order of unit within the course")
+
+    # relations (FKs)
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name='units')
+
+    class Meta:
+        ordering = ["order"]
+        # prevent duplicate order numbers
+        unique_together = ("course", "order")
 
     def __str__(self):
         return self.title
@@ -37,8 +48,6 @@ class Lesson(models.Model):
     document_link = models.URLField(blank=True)
 
     # relations (FKs)
-    course = models.ForeignKey(
-        Course, on_delete=models.CASCADE, related_name='lessons')
     unit = models.ForeignKey(
         Unit,
         on_delete=models.SET_NULL,
@@ -48,9 +57,9 @@ class Lesson(models.Model):
     )
 
     class Meta:
-        ordering = ["order"]
+        ordering = ["unit__order", "order"]  # global ordering across units
         # prevent duplicate order numbers
-        unique_together = ("course", "order")
+        unique_together = ("unit", "order")
 
     def __str__(self):
-        return f"{self.title} (Unit: {self.unit}) (Course: {self.course.name})"
+        return f"{self.title} (Unit: {self.unit})"

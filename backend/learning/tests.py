@@ -7,11 +7,10 @@ from django.contrib.auth import get_user_model
 
 from .models import (
     Grade,
-    Course, 
-    Lesson, 
+    Course,
+    Lesson,
     Unit
 )
-
 
 User = get_user_model()
 
@@ -44,22 +43,23 @@ class LearningModelsTest(TestCase):
             grade=self.grade1
         )
 
+        # In LearningModelsTest.setUp
         self.unit1 = Unit.objects.create(
-            title="Unit 1", description="Numbers"
+            title="Unit 1", description="Numbers", order=1, course=self.course1
         )
+        self.unit2 = Unit.objects.create(
+            title="Unit 2", description="Algebra", order=2, course=self.course1
+        )
+
+        # Example lessons
         self.lesson1 = Lesson.objects.create(
-            course=self.course1,
-            unit=self.unit1,
-            title="Addition",
-            order=1,
-            document_link="http://example.com/addition"
+            unit=self.unit1, title="Addition", order=1
         )
         self.lesson2 = Lesson.objects.create(
-            course=self.course1,
-            unit=self.unit1,
-            title="Subtraction",
-            order=2,
-            document_link="http://example.com/subtraction"
+            unit=self.unit1, title="Subtraction", order=2
+        )
+        self.lesson3 = Lesson.objects.create(
+            unit=self.unit2, title="Equations", order=1
         )
 
     def test_course_relationship(self):
@@ -67,7 +67,7 @@ class LearningModelsTest(TestCase):
                          [self.course1, self.course2])
 
     def test_lesson_relationship(self):
-        lessons = list(self.course1.lessons.all())
+        lessons = list(Lesson.objects.filter(unit=self.unit1))
         self.assertEqual(lessons, [self.lesson1, self.lesson2])
         self.assertEqual(lessons[0].order, 1)
 
@@ -81,22 +81,28 @@ class LearningModelsTest(TestCase):
     def test_unique_lesson_order(self):
         with self.assertRaises(IntegrityError):
             Lesson.objects.create(
-                course=self.course1,
+                unit=self.unit1,
                 title="Duplicate Order",
                 order=1,
                 document_link="http://example.com/duplicate"
             )
 
     def test_lesson_ordering_in_meta(self):
-        lessons = list(self.course1.lessons.all())
+        lessons = list(Lesson.objects.filter(unit__course=self.course1))
         self.assertEqual(lessons[0], self.lesson1)
         self.assertEqual(lessons[1], self.lesson2)
 
     def test_cross_course_same_order_allowed(self):
-        lesson_other_course = Lesson.objects.create(
+        unit_other_course = Unit.objects.create(
             course=self.course2,
+            title="Unit A",
+            description="Intro unit",
+            order=1
+        )
+        lesson_other_course = Lesson.objects.create(
+            unit=unit_other_course,
             title="Biology Intro",
-            order=1,  # same as lesson1 but different course
+            order=1,  # same order but different unit → allowed
             document_link="http://example.com/biology"
         )
         self.assertEqual(lesson_other_course.order, 1)
@@ -115,15 +121,30 @@ class LearningModelsTest(TestCase):
         self.assertIn("Addition", str(self.lesson1))
 
         # Unit
-        unit = self.lesson1.unit = Unit.objects.create(
-            title="Unit 1",
-            description="Intro unit"
+        unit = Unit.objects.create(
+            course=self.course1,
+            title="Unit 2",
+            description="Intro unit",
+            order=3
         )
-        self.assertEqual(str(unit), "Unit 1")
+        self.assertEqual(str(unit), "Unit 2")
+      
+    # ---------------------------
+    # units ordered by 'order'
+    def test_units_ordering(self):
+        units = list(self.course1.units.all())
+        self.assertEqual(units[0], self.unit1)
+        self.assertEqual(units[1], self.unit2)
+
+    # ---------------------------
+    # Lessons in a unit are ordered
+    def test_unit_lessons_ordering(self):
+        lessons = list(self.unit1.lessons.all())
+        self.assertEqual(lessons[0], self.lesson1)
+        self.assertEqual(lessons[1], self.lesson2)
 
 
 class LearningAPITestCase(APITestCase):
-
     def setUp(self):
         # Create grades
         self.grade1 = Grade.objects.create(name="Grade 1")
@@ -143,13 +164,15 @@ class LearningAPITestCase(APITestCase):
 
         # Create units and lessons
         self.unit1 = Unit.objects.create(
-            title="Unit 1", description="Numbers"
+            course=self.course1,
+            title="Unit 1", description="Numbers",
+            order=1
         )
         self.lesson1 = Lesson.objects.create(
-            title="Lesson 1", order=1, course=self.course1, unit=self.unit1
+            title="Lesson 1", order=1, unit=self.unit1
         )
         self.lesson2 = Lesson.objects.create(
-            title="Lesson 2", order=2, course=self.course1, unit=self.unit1
+            title="Lesson 2", order=2, unit=self.unit1
         )
 
     # ---------------------------
