@@ -98,42 +98,23 @@ class CourseProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_id="get_course_lessons_progress_list",
-        operation_description="Retrieve the authenticated user's progress for all lessons in a given course. \
-            If no progress exists, return lesson with is_completed=False, and id=None",
+        operation_id="get_course_progress",
+        operation_description="Retrieve the authenticated user's progress for lessons in a given course. \
+            Only lessons with progress are returned.",
         responses={200: LessonProgressSerializer(many=True)},
     )
     def get(self, request, course_id):
         # Ensure course exists
         course = get_object_or_404(Course, id=course_id)
 
-        # Get all lessons in the course
-        lessons = Lesson.objects.filter(course=course)
-
-        # Get all progress entries for this user in this course (one query)
+        # Get progress entries for this user in this course
         progress_qs = LessonProgress.objects.filter(
-            user=request.user, lesson__course=course
-        ).select_related("lesson")
+            user=request.user,
+            lesson__unit__course=course  # go via unit
+        ).select_related("lesson", "lesson__unit")
 
-        # Map progress by lesson_id for quick lookup
-        progress_map = {p.lesson_id: p for p in progress_qs}
-
-        data = []
-        for lesson in lessons:
-            progress = progress_map.get(lesson.id)
-            if progress:
-                item = LessonProgressSerializer(progress).data
-            else:
-                item = {
-                    "id": None,
-                    "user": str(request.user),  # or request.user.username
-                    "lesson": LessonSerializer(lesson).data,
-                    "is_completed": False,
-                    "last_accessed": None,
-                }
-            data.append(item)
-
-        return Response(data, status=status.HTTP_200_OK)
+        serializer = LessonProgressSerializer(progress_qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class OverallProgressSummaryView(APIView):
@@ -154,11 +135,13 @@ class OverallProgressSummaryView(APIView):
             )
 
         # All lessons for the user's grade (via courses in that grade)
-        total_lessons = Lesson.objects.filter(course__grade=user.grade).count()
+        total_lessons = Lesson.objects.filter(unit__course__grade=user.grade).count()
 
         # Lessons the user has completed
         completed_lessons = LessonProgress.objects.filter(
-            user=user, is_completed=True
+            user=user,
+            is_completed=True,
+            lesson__unit__course__grade=user.grade  # optional, if you want to restrict by grade
         ).count()
 
         # Calculate percentage

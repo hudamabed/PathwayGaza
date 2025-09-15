@@ -5,7 +5,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 
 from .models import LessonProgress
-from learning.models import Grade, Course, Lesson
+from learning.models import Grade, Course, Lesson, Unit
 
 User = get_user_model()
 
@@ -38,14 +38,17 @@ class ProgressModelsTest(TestCase):
             grade=self.grade1
         )
 
+        self.unit1 = Unit.objects.create(
+            course=self.course1, title="Numbers", order=1)
+
         self.lesson1 = Lesson.objects.create(
-            course=self.course1,
+            unit=self.unit1,
             title="Addition",
             order=1,
             document_link="http://example.com/addition"
         )
         self.lesson2 = Lesson.objects.create(
-            course=self.course1,
+            unit=self.unit1,
             title="Subtraction",
             order=2,
             document_link="http://example.com/subtraction"
@@ -93,11 +96,14 @@ class ProgressAPITest(APITestCase):
         self.course1 = Course.objects.create(name="Math", grade=self.grade1)
         self.course2 = Course.objects.create(name="Science", grade=self.grade2)
 
+        self.unit1 = Unit.objects.create(
+            course=self.course1, title="Unit 1", order=1)
+
         # Create lessons
         self.lesson1 = Lesson.objects.create(
-            title="Lesson 1", order=1, course=self.course1)
+            title="Lesson 1", order=1, unit=self.unit1)
         self.lesson2 = Lesson.objects.create(
-            title="Lesson 2", order=2, course=self.course1)
+            title="Lesson 2", order=2, unit=self.unit1)
 
         self.client.force_authenticate(self.student)
 
@@ -145,20 +151,18 @@ class ProgressAPITest(APITestCase):
     # ---------------------------
     def test_course_progress_view(self):
         # Start only lesson1
-        LessonProgress.objects.create(
-            user=self.student, lesson=self.lesson1, is_completed=True)
+        progress = LessonProgress.objects.create(
+            user=self.student, lesson=self.lesson1, is_completed=True
+        )
 
         url = reverse("course-progress", args=[self.course1.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # Both lesson progresses should appear
-        self.assertEqual(len(response.data), 2)
+        # Only one progress record should appear (lesson1)
+        self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["lesson"]["id"], self.lesson1.id)
-        self.assertEqual(response.data[1]["lesson"]["id"], self.lesson2.id)
-        self.assertIsNotNone(response.data[1].get("is_completed"))
         self.assertTrue(response.data[0].get("is_completed"))
-        self.assertFalse(response.data[1].get("is_completed"))
 
     # ---------------------------
     # Overall progress summary
