@@ -50,9 +50,7 @@ class Lesson(models.Model):
     # relations (FKs)
     unit = models.ForeignKey(
         Unit,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
         related_name='lessons'
     )
 
