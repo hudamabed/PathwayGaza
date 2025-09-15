@@ -5,7 +5,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 
 from .models import LessonProgress
-from learning.models import Grade, Course, Lesson
+from learning.models import Grade, Course, Lesson, Unit
 
 User = get_user_model()
 
@@ -38,14 +38,17 @@ class ProgressModelsTest(TestCase):
             grade=self.grade1
         )
 
+        self.unit1 = Unit.objects.create(
+            course=self.course1, title="Numbers", order=1)
+
         self.lesson1 = Lesson.objects.create(
-            course=self.course1,
+            unit=self.unit1,
             title="Addition",
             order=1,
             document_link="http://example.com/addition"
         )
         self.lesson2 = Lesson.objects.create(
-            course=self.course1,
+            unit=self.unit1,
             title="Subtraction",
             order=2,
             document_link="http://example.com/subtraction"
@@ -93,11 +96,14 @@ class ProgressAPITest(APITestCase):
         self.course1 = Course.objects.create(name="Math", grade=self.grade1)
         self.course2 = Course.objects.create(name="Science", grade=self.grade2)
 
+        self.unit1 = Unit.objects.create(
+            course=self.course1, title="Unit 1", order=1)
+
         # Create lessons
         self.lesson1 = Lesson.objects.create(
-            title="Lesson 1", order=1, course=self.course1)
+            title="Lesson 1", order=1, unit=self.unit1)
         self.lesson2 = Lesson.objects.create(
-            title="Lesson 2", order=2, course=self.course1)
+            title="Lesson 2", order=2, unit=self.unit1)
 
         self.client.force_authenticate(self.student)
 
