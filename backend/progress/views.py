@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -117,6 +117,7 @@ class CourseProgressView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+# TODO: add top % for the student in the grade (compared to other students in the same grade)
 class OverallProgressSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 

@@ -48,10 +48,10 @@ INSTALLED_APPS = [
     'drf_yasg',
 
     # local apps
+    'users',
     'learning',
     'progress',
-    # 'quizzes',
-    'users',
+    'quizzes',
 ]
 
 # DRF config
