@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 
@@ -27,7 +28,7 @@ class Question(models.Model):
 
     def __str__(self):
         return self.text[:50]  # Return first 50 characters of the question
-    
+
 
 class Answer(models.Model):
     text = models.CharField(max_length=500)
@@ -58,3 +59,33 @@ class Answer(models.Model):
 
     def __str__(self):
         return self.text[:50]  # Return first 50 characters of the answer
+
+
+class QuizAttempt(models.Model):
+    score = models.FloatField()
+    attempted_at = models.DateTimeField(auto_now_add=True)
+
+    # relations (FKs)
+    quiz = models.ForeignKey(
+        Quiz, on_delete=models.CASCADE, related_name='attempts')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='quiz_attempts')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.quiz.title} - {self.score}"
+
+
+class UserAnswer(models.Model):
+    is_correct = models.BooleanField()
+
+    # relations (FKs)
+    attempt = models.ForeignKey(
+        QuizAttempt, on_delete=models.CASCADE, related_name='user_answers')
+    question = models.ForeignKey(
+        Question, on_delete=models.CASCADE, related_name='user_answers')
+    selected_answer = models.ForeignKey(
+        Answer, on_delete=models.CASCADE, related_name='user_answers')
+
+    def __str__(self):
+        return f"{self.attempt.user.username} - {self.question.text[:30]} \
+            - {self.selected_answer.text[:30]} - {'Correct' if self.is_correct else 'Incorrect'}"
