@@ -35,7 +35,7 @@ class UnitAdmin(admin.ModelAdmin):
     list_display = ("title", "course", "order", "description")
     list_filter = ("course",)
     search_fields = ("title", "description")
-    ordering = ("course", "order")  # order by course first, then order within course
+    ordering = ("course", "order")
     inlines = [LessonInline]  # show lessons under each unit
 
 
@@ -44,4 +44,4 @@ class LessonAdmin(admin.ModelAdmin):
     list_display = ("title", "unit", "order", "document_link")
     list_filter = ("unit__course", "unit")  # filter by course or unit
     search_fields = ("title", "document_link")
-    ordering = ("unit__course", "order")
+    ordering = ("unit", "order")

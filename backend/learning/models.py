@@ -60,4 +60,4 @@ class Lesson(models.Model):
         unique_together = ("unit", "order")
 
     def __str__(self):
-        return f"{self.title} (Unit: {self.unit})"
+        return f"{self.title} ({self.unit} - {self.unit.course})"
