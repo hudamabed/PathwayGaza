@@ -1,0 +1,245 @@
+Folder PATH listing
+Volume serial number is 72EF-3527
+C:.
+|   .gitignore
+|   docker-compose.yml
+|   flutter_tree.txt
+|   README.md
+|   
++---backend
+|   |   manage.py
+|   |   requirements.txt
+|   |   
+|   +---core
+|   |       asgi.py
+|   |       exceptions.py
+|   |       settings.py
+|   |       urls.py
+|   |       wsgi.py
+|   |       __init__.py
+|   |       
+|   +---learning
+|   |   |   admin.py
+|   |   |   apps.py
+|   |   |   models.py
+|   |   |   serializers.py
+|   |   |   tests.py
+|   |   |   urls.py
+|   |   |   views.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---migrations
+|   |           0001_initial.py
+|   |           __init__.py
+|   |           
+|   +---progress
+|   |   |   admin.py
+|   |   |   apps.py
+|   |   |   models.py
+|   |   |   serializers.py
+|   |   |   tests.py
+|   |   |   urls.py
+|   |   |   views.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---migrations
+|   |           0001_initial.py
+|   |           0002_initial.py
+|   |           __init__.py
+|   |           
+|   \---users
+|       |   admin.py
+|       |   apps.py
+|       |   authentication.py
+|       |   models.py
+|       |   serializers.py
+|       |   tests.py
+|       |   urls.py
+|       |   views.py
+|       |   __init__.py
+|       |   
+|       \---migrations
+|               0001_initial.py
+|               __init__.py
+|               
+\---frontend
+    |   .gitignore
+    |   .metadata
+    |   analysis_options.yaml
+    |   pubspec.lock
+    |   pubspec.yaml
+    |   README.md
+    |   
+    |   |   package_config.json
+    |   |   package_graph.json
+    |   |   version
+    |   |   
+    |   +---chrome-device
+    |   |   \---Default
+    |   |       +---AutofillStrikeDatabase
+    |   |       +---blob_storage
+    |   |       |   +---1a0e7d65-3271-4f28-8853-edec3a9813b0
+    |   |       |   +---2898cf75-20ce-4411-b536-9f9c55f6fee9
+    |   |       |   +---2ebefb09-cc96-480d-b881-2d01193c5741
+    |   |       |   +---414a45bf-7929-42ff-af58-df79fc52007e
+    |   |       |   +---44fba787-3274-4768-99d7-a4fa592e755f
+    |   |       |   +---4c070d30-8e56-46b0-9217-855d159aa49e
+    |   |       |   +---71b594c1-db86-4f81-8e0f-3f6807bf98eb
+    |   |       |   +---8ec72dd5-0bde-4381-8bd7-75c2fabd88f4
+    |   |       |   +---9337a88d-bce1-43ae-9876-8c788904d2f5
+    |   |       |   +---96cc1eb6-4b16-428e-b216-b430f6457ad5
+    |   |       |   +---a54246ca-1c75-492e-a1c1-db553cd47bf9
+    |   |       |   +---c59b9264-4393-41da-8741-57b910c8ac36
+    |   |       |   +---e33ef413-2109-4583-9ab8-50952f3790b8
+    |   |       |   +---e7b31a59-a606-48ab-97bc-1fa2b4a047d2
+    |   |       |   \---f4713d5b-1b23-4a37-921f-2ae42b3943f0
+    |   |       +---BudgetDatabase
+    |   |       +---ClientCertificates
+    |   |       +---commerce_subscription_db
+    |   |       +---discounts_db
+    |   |       +---Download Service
+    |   |       |   +---EntryDB
+    |   |       |   \---Files
+    |   |       +---Extension Rules
+    |   |       +---Extension Scripts
+    |   |       +---Extension State
+    |   |       +---Feature Engagement Tracker
+    |   |       |   +---AvailabilityDB
+    |   |       |   \---EventDB
+    |   |       +---GCM Store
+    |   |       |   \---Encryption
+    |   |       +---Local Storage
+    |   |       |   \---leveldb
+    |   |       +---Network
+    |   |       +---optimization_guide_hint_cache_store
+    |   |       +---parcel_tracking_db
+    |   |       +---PersistentOriginTrials
+    |   |       +---Safe Browsing Network
+    |   |       +---Segmentation Platform
+    |   |       |   +---SegmentInfoDB
+    |   |       |   +---SignalDB
+    |   |       |   \---SignalStorageConfigDB
+    |   |       +---Service Worker
+    |   |       |   +---Database
+    |   |       |   \---ScriptCache
+    |   |       |       \---index-dir
+    |   |       +---Session Storage
+    |   |       +---Sessions
+    |   |       +---Shared Dictionary
+    |   |       |   \---cache
+    |   |       |       \---index-dir
+    |   |       +---shared_proto_db
+    |   |       |   \---metadata
+    |   |       +---Site Characteristics Database
+    |   |       +---Sync Data
+    |   |       |   \---LevelDB
+    |   |       \---WebStorage
+    |   +---dartpad
+    |   |       web_plugin_registrant.dart
+    |   |       
+    |   \---extension_discovery
+    |           vs_code.json
+    |           
+    +---.idea
+    |   +---libraries
+    |   \---runConfigurations
+    +---assets
+    |   \---images
+    |           book.png
+    |           hero_kids.png
+    |           no_wifi.jpg
+    |           palestine.png
+    |           safe.png
+    |           school.png
+    |           stu_signup.jpg
+    |           test.png
+    |           
+    +---build
+    |   |   7e4aebe516b998635f34742713e086a8.cache.dill.track.dill
+    |   |   
+    |   +---545bfba071cc93c59a66aa201b910497
+    |   +---5bc7643333c88132ca11f7bad9b91b1a
+    |   +---70dd4c54e260810fb2d6626a7f0199e4
+    |   |       gen_dart_plugin_registrant.stamp
+    |   |       gen_localizations.stamp
+    |   |       _composite.stamp
+    |   |       
+    |   \---flutter_assets
+    |       |   AssetManifest.bin
+    |       |   AssetManifest.bin.json
+    |       |   AssetManifest.json
+    |       |   FontManifest.json
+    |       |   NOTICES
+    |       |   
+    |       +---assets
+    |       |   \---images
+    |       |           book.png
+    |       |           hero_kids.png
+    |       |           no_wifi.jpg
+    |       |           palestine.png
+    |       |           safe.png
+    |       |           school.png
+    |       |           stu_signup.jpg
+    |       |           test.png
+    |       |           
+    |       +---fonts
+    |       |       MaterialIcons-Regular.otf
+    |       |       
+    |       +---packages
+    |       |   \---cupertino_icons
+    |       |       \---assets
+    |       |               CupertinoIcons.ttf
+    |       |               
+    |       \---shaders
+    |               ink_sparkle.frag
+    |               
+    +---lib
+    |   |   app.dart
+    |   |   main.dart
+    |   |   
+    |   +---core
+    |   |   \---theme
+    |   |           palette.dart
+    |   |           
+    |   \---features
+    |       +---auth
+    |       |       login_page.dart
+    |       |       signup_page.dart
+    |       |       
+    |       +---catalog
+    |       |       catalog_page.dart
+    |       |       
+    |       +---common
+    |       |       site_app_bar.dart
+    |       |       
+    |       +---course
+    |       |       course_content_page.dart
+    |       |       course_grades_page.dart
+    |       |       course_page.dart
+    |       |       
+    |       +---home
+    |       |       home_page.dart
+    |       |       
+    |       +---landing
+    |       |       features_section.dart
+    |       |       footer_section.dart
+    |       |       landing_page.dart
+    |       |       
+    |       \---lesson
+    |               lesson_page.dart
+    |               quiz_page.dart
+    |               
+    +---test
+    |       widget_test.dart
+    |       
+    \---web
+        |   favicon.png
+        |   index.html
+        |   manifest.json
+        |   
+        \---icons
+                Icon-192.png
+                Icon-512.png
+                Icon-maskable-192.png
+                Icon-maskable-512.png
+                

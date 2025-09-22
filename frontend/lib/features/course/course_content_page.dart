@@ -1,9 +1,13 @@
+// lib/features/course/course_content_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart';
 import '../../core/theme/palette.dart';
+import '../../main.dart' show AppRoutes;                   // ✅ for named route
 
-/// =====================
-/// Models (simple & API-friendly)
-/// =====================
+/* =====================
+   Models (simple & API-friendly)
+   ===================== */
 
 enum LessonType { video, reading, quiz, live }
 enum LessonStatus { notStarted, inProgress, completed }
@@ -22,6 +26,14 @@ class Lesson {
     required this.status,
     this.duration,
   });
+
+  Lesson copyWith({LessonStatus? status}) => Lesson(
+        id: id,
+        title: title,
+        type: type,
+        status: status ?? this.status,
+        duration: duration,
+      );
 }
 
 class ContentUnit {
@@ -36,16 +48,137 @@ class ContentUnit {
   });
 }
 
-/// =====================
-/// Page
-/// Pass real data via [units]. A demo seed is used if empty.
-/// =====================
+/* =====================
+   Repository (swap Fake -> API later)
+   ===================== */
+
+class CourseContentData {
+  final String courseId;
+  final String courseTitle;
+  final String gradeLabel;
+  final String overview;
+  final List<ContentUnit> units;
+
+  const CourseContentData({
+    required this.courseId,
+    required this.courseTitle,
+    required this.gradeLabel,
+    required this.overview,
+    required this.units,
+  });
+}
+
+abstract class CourseContentRepository {
+  Future<CourseContentData> fetch(String courseId);
+  // Future<void> markLessonStatus(String courseId, String lessonId, LessonStatus status);
+}
+
+class FakeCourseContentRepository implements CourseContentRepository {
+  @override
+  Future<CourseContentData> fetch(String courseId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
+    const overview =
+        'في هذه المادة سنتعرف على مفاهيم ومهارات متنوعة: الأعداد الحقيقية،'
+        ' العلاقات والدوال، الهندسة والقياس، إضافةً إلى الإحصاء والاحتمالات.';
+
+    const units = <ContentUnit>[
+      ContentUnit(
+        id: 'u1',
+        title: 'الوحدة الأولى: الأعداد الحقيقية',
+        lessons: [
+          Lesson(
+            id: 'l1',
+            title: 'الدرس الأول: الأعداد الصحيحة',
+            type: LessonType.reading,
+            status: LessonStatus.completed,
+            duration: Duration(minutes: 15),
+          ),
+          Lesson(
+            id: 'l2',
+            title: 'الدرس الثاني: الأعداد الكسرية',
+            type: LessonType.video,
+            status: LessonStatus.inProgress,
+            duration: Duration(minutes: 18),
+          ),
+          Lesson(
+            id: 'l3',
+            title: 'الدرس الثالث: الأعداد العشرية',
+            type: LessonType.reading,
+            status: LessonStatus.notStarted,
+            duration: Duration(minutes: 12),
+          ),
+          Lesson(
+            id: 'l4',
+            title: 'اختبار قصير',
+            type: LessonType.quiz,
+            status: LessonStatus.notStarted,
+            duration: Duration(minutes: 8),
+          ),
+        ],
+      ),
+      ContentUnit(
+        id: 'u2',
+        title: 'الوحدة الثانية: العلاقات والاقترانات',
+        lessons: [
+          Lesson(
+            id: 'l5',
+            title: 'مفهوم العلاقة',
+            type: LessonType.video,
+            status: LessonStatus.notStarted,
+            duration: Duration(minutes: 14),
+          ),
+          Lesson(
+            id: 'l6',
+            title: 'تمثيل الدوال',
+            type: LessonType.reading,
+            status: LessonStatus.notStarted,
+            duration: Duration(minutes: 16),
+          ),
+        ],
+      ),
+      ContentUnit(
+        id: 'u3',
+        title: 'الوحدة الثالثة: الهندسة والقياس',
+        lessons: [
+          Lesson(
+            id: 'l7',
+            title: 'المحيط والمساحة',
+            type: LessonType.video,
+            status: LessonStatus.completed,
+            duration: Duration(minutes: 20),
+          ),
+          Lesson(
+            id: 'l8',
+            title: 'زوايا ومضلعات',
+            type: LessonType.reading,
+            status: LessonStatus.inProgress,
+            duration: Duration(minutes: 17),
+          ),
+        ],
+      ),
+    ];
+
+    return const CourseContentData(
+      courseId: 'demo-math-g9',
+      courseTitle: 'الرياضيات',
+      gradeLabel: 'الصف التاسع',
+      overview: overview,
+      units: units,
+    );
+  }
+}
+
+/* =====================
+   Page
+   ===================== */
 class CourseContentPage extends StatefulWidget {
   final String courseId;
   final String courseTitle;
-  final String gradeLabel; // e.g. "الصف التاسع"
-  final String overview;   // short "what you'll learn"
-  final List<ContentUnit> units;
+  final String gradeLabel;
+  final String overview; // fallback if repo omits it
+  final List<ContentUnit> units; // fallback if repo omits it
+  final CourseContentRepository? repository;
 
   const CourseContentPage({
     super.key,
@@ -56,6 +189,7 @@ class CourseContentPage extends StatefulWidget {
         'في هذه المادة سنتعرف على مفاهيم ومهارات متنوعة: الأعداد الحقيقية،'
         ' العلاقات والدوال، الهندسة والقياس، إضافةً إلى الإحصاء والاحتمالات.',
     this.units = const [],
+    this.repository,
   });
 
   @override
@@ -63,246 +197,208 @@ class CourseContentPage extends StatefulWidget {
 }
 
 class _CourseContentPageState extends State<CourseContentPage> {
+  late final CourseContentRepository _repo =
+      widget.repository ?? FakeCourseContentRepository();
+
+  late Future<CourseContentData> _future;
+
+  // UI state
   LessonStatus? _statusFilter;
   String _query = '';
-  late final List<ContentUnit> _units;
 
   @override
   void initState() {
     super.initState();
-    _units = widget.units.isNotEmpty ? widget.units : _demoUnits();
+    _future = _repo.fetch(widget.courseId);
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _future = _repo.fetch(widget.courseId));
+    await _future;
   }
 
   @override
   Widget build(BuildContext context) {
-    // overall progress
-    final allLessons = _units.expand((u) => u.lessons).toList();
-    final done = allLessons.where((l) => l.status == LessonStatus.completed).length;
-    final percent = allLessons.isEmpty ? 0.0 : done / allLessons.length;
-
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Palette.pageBackground,
-        appBar: _CourseBar(title: widget.courseTitle, grade: widget.gradeLabel),
-        body: LayoutBuilder(
-          builder: (context, c) {
-            final isWide = c.maxWidth >= 1100;
+      child: FutureBuilder<CourseContentData>(
+        future: _future,
+        builder: (context, snap) {
+          final isLoading = snap.connectionState == ConnectionState.waiting && !snap.hasData;
+          final hasError = snap.hasError;
+          final data = snap.data;
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1300),
-                  child: Column(
-                    children: [
-                      _BannerHeader(
-                        title: widget.courseTitle,
-                        grade: widget.gradeLabel,
-                        progress: percent,
-                        completedCount: done,
-                        totalCount: allLessons.length,
-                      ),
-                      const SizedBox(height: 20),
+          // fallbacks if repo hasn’t returned yet (keeps layout stable)
+          final title = data?.courseTitle ?? widget.courseTitle;
+          final grade = data?.gradeLabel ?? widget.gradeLabel;
+          final overview = data?.overview ?? widget.overview;
+          final units = data?.units.isNotEmpty == true ? data!.units : widget.units;
 
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 20,
-                        children: [
-                          // ---------- Column A ----------
-                          SizedBox(
-                            width: isWide ? 420 : c.maxWidth,
-                            child: Column(
-                              children: [
-                                _Card(child: _Overview(overview: widget.overview)),
-                                const SizedBox(height: 20),
-                                _Card(
-                                  child: _StatsBlock(
-                                    total: allLessons.length,
-                                    completed: done,
-                                    inProgress: allLessons
-                                        .where((e) => e.status == LessonStatus.inProgress)
-                                        .length,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+          // progress
+          final allLessons = units.expand((u) => u.lessons).toList();
+          final done = allLessons.where((l) => l.status == LessonStatus.completed).length;
+          final percent = allLessons.isEmpty ? 0.0 : done / allLessons.length;
 
-                          // ---------- Column B ----------
-                          SizedBox(
-                            width: isWide ? (1300 - 420 - 20) : c.maxWidth,
-                            child: _Card(
-                              padding: EdgeInsets.zero,
+          return Scaffold(
+            backgroundColor: Palette.pageBackground,
+            appBar: _CourseBar(title: title, grade: grade),
+            body: hasError
+                ? _ErrorState(onRetry: _refresh)
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        final isWide = c.maxWidth >= 1100;
+
+                        if (isLoading && data == null) {
+                          return const _Skeleton();
+                        }
+
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1300),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // header + search + filter
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Row(
+                                  _BannerHeader(
+                                    title: title,
+                                    grade: grade,
+                                    progress: percent,
+                                    completedCount: done,
+                                    totalCount: allLessons.length,
+                                  ),
+                                  const SizedBox(height: 20),
+
+                                  Wrap(
+                                    spacing: 20,
+                                    runSpacing: 20,
+                                    children: [
+                                      // ---------- Column A ----------
+                                      SizedBox(
+                                        width: isWide ? 420 : c.maxWidth,
+                                        child: Column(
                                           children: [
-                                            const Text('المحتويات',
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Palette.text,
-                                                )),
-                                            const Spacer(),
-                                            _StatusFilter(
-                                              value: _statusFilter,
-                                              onChanged: (v) => setState(() => _statusFilter = v),
+                                            _Card(child: _Overview(overview: overview)),
+                                            const SizedBox(height: 20),
+                                            _Card(
+                                              child: _StatsBlock(
+                                                total: allLessons.length,
+                                                completed: done,
+                                                inProgress: allLessons
+                                                    .where((e) => e.status == LessonStatus.inProgress)
+                                                    .length,
+                                              ),
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 10),
-                                        _SearchField(
-                                          initialText: _query,
-                                          onChanged: (txt) =>
-                                              setState(() => _query = txt.trim()),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Divider(height: 1, color: Color(0x14555555)),
-
-                                  // Units
-                                  if (_units.isEmpty)
-                                    const Padding(
-                                      padding: EdgeInsets.all(18),
-                                      child: Center(
-                                        child: Text('لا يوجد محتوى بعد.',
-                                            style: TextStyle(color: Palette.subtitle)),
                                       ),
-                                    )
-                                  else
-                                    ListView.separated(
-                                      shrinkWrap: true,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                                      itemCount: _units.length,
-                                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                                      itemBuilder: (context, i) {
-                                        final unit = _units[i];
-                                        return _UnitTile(
-                                          unit: unit,
-                                          initiallyExpanded: i == 0,
-                                          filter: _statusFilter,
-                                          query: _query,
-                                          onTapLesson: (lesson) {
-                                            // TODO: Navigate to lesson page using lesson.id
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('فتح: ${lesson.title}')),
-                                            );
-                                          },
-                                        );
-                                      },
-                                    ),
+
+                                      // ---------- Column B ----------
+                                      SizedBox(
+                                        width: isWide ? (1300 - 420 - 20) : c.maxWidth,
+                                        child: _Card(
+                                          padding: EdgeInsets.zero,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              // header + search + filter
+                                              Padding(
+                                                padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        const Text('المحتويات',
+                                                            style: TextStyle(
+                                                              fontSize: 18,
+                                                              fontWeight: FontWeight.w800,
+                                                              color: Palette.text,
+                                                            )),
+                                                        const Spacer(),
+                                                        _StatusFilter(
+                                                          value: _statusFilter,
+                                                          onChanged: (v) => setState(() => _statusFilter = v),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    _SearchField(
+                                                      initialText: _query,
+                                                      onChanged: (txt) =>
+                                                          setState(() => _query = txt.trim()),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const Divider(height: 1, color: Color(0x14555555)),
+
+                                              // Units
+                                              if (units.isEmpty)
+                                                const Padding(
+                                                  padding: EdgeInsets.all(18),
+                                                  child: Center(
+                                                    child: Text('لا يوجد محتوى بعد.',
+                                                        style: TextStyle(color: Palette.subtitle)),
+                                                  ),
+                                                )
+                                              else
+                                                ListView.separated(
+                                                  shrinkWrap: true,
+                                                  physics: const NeverScrollableScrollPhysics(),
+                                                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                                                  itemCount: units.length,
+                                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                                  itemBuilder: (context, i) {
+                                                    final unit = units[i];
+                                                    return _UnitTile(
+                                                      unit: unit,
+                                                      initiallyExpanded: i == 0,
+                                                      filter: _statusFilter,
+                                                      query: _query,
+                                                      onTapLesson: (lesson) {
+                                                        // ✅ Navigate to the Lesson screen
+                                                        Navigator.of(context).pushNamed(
+                                                          AppRoutes.lesson,
+                                                          arguments: LessonPageArgs(
+                                                            courseId: widget.courseId,
+                                                            lessonId: lesson.id,
+                                                            lessonTitle: lesson.title,
+                                                          ),
+                                                        );
+                                                      },
+                                                    );
+                                                  },
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 16),
+                                  const _SmallFooter(),
                                 ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-                      const _SmallFooter(),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
+          );
+        },
       ),
     );
   }
-
-  // -------- demo seed (replace with real API data) --------
-  List<ContentUnit> _demoUnits() => const [
-        ContentUnit(
-          id: 'u1',
-          title: 'الوحدة الأولى: الأعداد الحقيقية',
-          lessons: [
-            Lesson(
-              id: 'l1',
-              title: 'الدرس الأول: الأعداد الصحيحة',
-              type: LessonType.reading,
-              status: LessonStatus.completed,
-              duration: Duration(minutes: 15),
-            ),
-            Lesson(
-              id: 'l2',
-              title: 'الدرس الثاني: الأعداد الكسرية',
-              type: LessonType.video,
-              status: LessonStatus.inProgress,
-              duration: Duration(minutes: 18),
-            ),
-            Lesson(
-              id: 'l3',
-              title: 'الدرس الثالث: الأعداد العشرية',
-              type: LessonType.reading,
-              status: LessonStatus.notStarted,
-              duration: Duration(minutes: 12),
-            ),
-            Lesson(
-              id: 'l4',
-              title: 'اختبار قصير',
-              type: LessonType.quiz,
-              status: LessonStatus.notStarted,
-              duration: Duration(minutes: 8),
-            ),
-          ],
-        ),
-        ContentUnit(
-          id: 'u2',
-          title: 'الوحدة الثانية: العلاقات والاقترانات',
-          lessons: [
-            Lesson(
-              id: 'l5',
-              title: 'مفهوم العلاقة',
-              type: LessonType.video,
-              status: LessonStatus.notStarted,
-              duration: Duration(minutes: 14),
-            ),
-            Lesson(
-              id: 'l6',
-              title: 'تمثيل الدوال',
-              type: LessonType.reading,
-              status: LessonStatus.notStarted,
-              duration: Duration(minutes: 16),
-            ),
-          ],
-        ),
-        ContentUnit(
-          id: 'u3',
-          title: 'الوحدة الثالثة: الهندسة والقياس',
-          lessons: [
-            Lesson(
-              id: 'l7',
-              title: 'المحيط والمساحة',
-              type: LessonType.video,
-              status: LessonStatus.completed,
-              duration: Duration(minutes: 20),
-            ),
-            Lesson(
-              id: 'l8',
-              title: 'زوايا ومضلعات',
-              type: LessonType.reading,
-              status: LessonStatus.inProgress,
-              duration: Duration(minutes: 17),
-            ),
-          ],
-        ),
-      ];
 }
 
-/// =====================
-/// Top Bar
-/// =====================
+/* =====================
+   Top Bar
+   ===================== */
 class _CourseBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final String grade;
@@ -341,9 +437,9 @@ class _CourseBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-/// =====================
-/// Banner
-/// =====================
+/* =====================
+   Banner
+   ===================== */
 class _BannerHeader extends StatelessWidget {
   final String title;
   final String grade;
@@ -438,9 +534,9 @@ class _BannerHeader extends StatelessWidget {
   }
 }
 
-/// =====================
-/// Overview
-/// =====================
+/* =====================
+   Overview
+   ===================== */
 class _Overview extends StatelessWidget {
   final String overview;
   const _Overview({required this.overview});
@@ -461,9 +557,9 @@ class _Overview extends StatelessWidget {
   }
 }
 
-/// =====================
-/// Stats
-/// =====================
+/* =====================
+   Stats
+   ===================== */
 class _StatsBlock extends StatelessWidget {
   final int total;
   final int completed;
@@ -544,9 +640,9 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-/// =====================
-/// Search + Filter
-/// =====================
+/* =====================
+   Search + Filter
+   ===================== */
 class _SearchField extends StatelessWidget {
   final String initialText;
   final ValueChanged<String> onChanged;
@@ -611,9 +707,9 @@ class _StatusFilter extends StatelessWidget {
   }
 }
 
-/// =====================
-/// Units / Lessons
-/// =====================
+/* =====================
+   Units / Lessons
+   ===================== */
 class _UnitTile extends StatefulWidget {
   final ContentUnit unit;
   final LessonStatus? filter;
@@ -778,9 +874,9 @@ class _LessonRow extends StatelessWidget {
   }
 }
 
-/// =====================
-/// Small bits
-/// =====================
+/* =====================
+   Small bits
+   ===================== */
 class _CardTitle extends StatelessWidget {
   final String text;
   const _CardTitle(this.text);
@@ -883,4 +979,65 @@ class _SmallFooter extends StatelessWidget {
           child: Icon(icon, size: 18, color: color ?? Colors.black87),
         ),
       );
+}
+
+/* =====================
+   Error & Skeleton
+   ===================== */
+class _ErrorState extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorState({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: Palette.subtitle),
+            const SizedBox(height: 10),
+            const Text('تعذر تحميل الصفحة. حاول مجددًا.', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget skel({double h = 16, double r = 10}) => Container(
+          height: h,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(.06),
+            borderRadius: BorderRadius.circular(r),
+          ),
+        );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      child: Column(
+        children: [
+          Container(height: 126, decoration: BoxDecoration(color: Colors.black.withOpacity(.06), borderRadius: BorderRadius.circular(16))),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: Container(height: 140, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)))),
+              const SizedBox(width: 20),
+              Expanded(child: Container(height: 280, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(height: 60, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12))),
+        ],
+      ),
+    );
+  }
 }
