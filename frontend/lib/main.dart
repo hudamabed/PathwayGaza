@@ -2,13 +2,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+// Theme
 import 'package:gaza_learning_pathways/core/theme/palette.dart';
-import 'package:gaza_learning_pathways/features/auth/login_page.dart';
-import 'package:gaza_learning_pathways/features/catalog/catalog_page.dart';
+
+// Top-level pages
 import 'package:gaza_learning_pathways/features/home/home_page.dart';
+import 'package:gaza_learning_pathways/features/catalog/catalog_page.dart';
+import 'package:gaza_learning_pathways/features/auth/login_page.dart';
+import 'package:gaza_learning_pathways/features/auth/signup_page.dart';      // optional
+import 'package:gaza_learning_pathways/features/landing/landing_page.dart';  // optional
+
+// Course flows
+import 'package:gaza_learning_pathways/features/course/course_page.dart';
 import 'package:gaza_learning_pathways/features/course/course_content_page.dart';
 import 'package:gaza_learning_pathways/features/course/course_grades_page.dart';
-import 'package:gaza_learning_pathways/features/course/course_page.dart';
+
+// Lesson screen + its args
+import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,12 +28,15 @@ void main() {
 /* ======================= Route Names + Args ======================= */
 
 class AppRoutes {
-  static const home = '/home';
-  static const login = '/login';
+  static const home          = '/home';
+  static const login         = '/login';
+  static const signup        = '/signup';          // optional
+  static const landing       = '/landing';         // optional
+  static const catalog       = '/catalog';
+  static const coursePage    = '/course-page';
   static const courseContent = '/course-content';
-  static const grades = '/grades';
-  static const coursePage = '/course-page';
-  static const catalog = '/catalog'; // ✅ FIX: define the missing route
+  static const grades        = '/grades';
+  static const lesson        = '/lesson';          // ✅ for LessonPage
 }
 
 class CourseContentArgs {
@@ -77,9 +90,9 @@ class _RootAppState extends State<_RootApp> {
   @override
   Widget build(BuildContext context) {
     // Demo fallbacks
-    const demoCourseId = 'demo-math-g9';
+    const demoCourseId    = 'demo-math-g9';
     const demoCourseTitle = 'الرياضيات';
-    const demoGradeLabel = 'الصف التاسع';
+    const demoGradeLabel  = 'الصف التاسع';
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -106,44 +119,65 @@ class _RootAppState extends State<_RootApp> {
         ),
       ),
 
-      // Start on /home and define all routes:
+      // Start here
       initialRoute: AppRoutes.home,
+
       routes: {
-        AppRoutes.home: (_) => const HomePage(),
-        AppRoutes.login: (_) => const LoginPage(),
+        // ---------- Top-level ----------
+        AppRoutes.home:   (_) => const HomePage(),
+        AppRoutes.login:  (_) => const LoginPage(),
+        AppRoutes.signup: (_) => const SignupPage(),                                   // optional
+        AppRoutes.landing:(_) => LandingPage(                                          // ✅ pass required args
+              isArabic: _locale.languageCode == 'ar',
+              onToggleLanguage: _toggleLocale,
+            ),
+        AppRoutes.catalog:(_) => const CatalogPage(),
 
-        // /course-content
-        AppRoutes.courseContent: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as CourseContentArgs?;
-          return CourseContentPage(
-            courseId: args?.courseId ?? demoCourseId,
-            courseTitle: args?.courseTitle ?? demoCourseTitle,
-            gradeLabel: args?.gradeLabel ?? demoGradeLabel,
-          );
-        },
-
-        // /grades
-        AppRoutes.grades: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
-          return CourseGradesPage(
-            courseId: args?.courseId ?? demoCourseId,
-            courseTitle: args?.courseTitle ?? demoCourseTitle,
-            gradeLabel: args?.gradeLabel ?? demoGradeLabel,
-          );
-        },
-
-        // /course-page (optional tabs page)
+        // ---------- Course ----------
         AppRoutes.coursePage: (context) {
           final args = ModalRoute.of(context)?.settings.arguments as CoursePageArgs?;
           return CoursePage(
             courseTitle: args?.courseTitle ?? demoCourseTitle,
-            gradeLabel: args?.gradeLabel ?? demoGradeLabel,
+            gradeLabel: args?.gradeLabel  ?? demoGradeLabel,
           );
         },
 
-        // /catalog
-        AppRoutes.catalog: (_) => const CatalogPage(),
+        AppRoutes.courseContent: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as CourseContentArgs?;
+          return CourseContentPage(
+            courseId:     args?.courseId     ?? demoCourseId,
+            courseTitle:  args?.courseTitle  ?? demoCourseTitle,
+            gradeLabel:   args?.gradeLabel   ?? demoGradeLabel,
+          );
+        },
+
+        AppRoutes.grades: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
+          return CourseGradesPage(
+            courseId:     args?.courseId     ?? demoCourseId,
+            courseTitle:  args?.courseTitle  ?? demoCourseTitle,
+            gradeLabel:   args?.gradeLabel   ?? demoGradeLabel,
+          );
+        },
+
+        // ---------- Lesson ----------
+        AppRoutes.lesson: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as LessonPageArgs?;
+          return LessonPage(
+            courseId:    args?.courseId    ?? demoCourseId,
+            lessonId:    args?.lessonId    ?? 'demo-lesson',
+            lessonTitle: args?.lessonTitle ?? 'درس تجريبي',
+          );
+        },
       },
+
+      // Fallback when a route is missing
+      onUnknownRoute: (settings) => MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('صفحة غير موجودة')),
+          body: Center(child: Text('المسار غير معروف: ${settings.name}')),
+        ),
+      ),
     );
   }
 }

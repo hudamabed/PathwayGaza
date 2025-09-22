@@ -1,9 +1,10 @@
 // lib/features/course/course_grades_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/palette.dart';
 
 /// =======================
-/// Top-level helpers (visible to all widgets in this file)
+/// Top-level helpers
 /// =======================
 
 String fmtNum(double? v) {
@@ -13,7 +14,9 @@ String fmtNum(double? v) {
 
 String fmtDate(DateTime? d) {
   if (d == null) return '-';
-  return '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
+  final m = d.month.toString().padLeft(2, '0');
+  final day = d.day.toString().padLeft(2, '0');
+  return '${d.year}/$m/$day';
 }
 
 // Fixed width helper for headers/cells
@@ -27,11 +30,11 @@ class GradeItem {
   final String id;
   final String title;
   final String category; // e.g. "امتحان قصير", "امتحان شهرين", "واجب"
-  final DateTime? date; // optional
-  final double? score; // student's score (null => not graded yet)
-  final double max; // maximum possible
-  final double min; // minimum (often 0) – shown for transparency
-  final double? weight; // optional: if you use weighted categories
+  final DateTime? date;  // optional
+  final double? score;   // student's score (null => not graded yet)
+  final double max;      // maximum possible
+  final double min;      // minimum (often 0) – shown for transparency
+  final double? weight;  // optional: if you use weighted categories
 
   const GradeItem({
     required this.id,
@@ -45,6 +48,67 @@ class GradeItem {
   });
 }
 
+/// Simple container in case you want to return more metadata later
+class GradesData {
+  final List<GradeItem> items;
+  const GradesData(this.items);
+}
+
+/// =======================
+/// Repository (swap Fake -> real API later)
+/// =======================
+
+abstract class GradesRepository {
+  Future<GradesData> fetch(String courseId);
+}
+
+class FakeGradesRepository implements GradesRepository {
+  @override
+  Future<GradesData> fetch(String courseId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    final now = DateTime.now();
+    return GradesData([
+      GradeItem(
+        id: 'g1',
+        title: 'امتحان قصير 1',
+        category: 'امتحان قصير',
+        date: now.subtract(const Duration(days: 25)),
+        score: 8,
+        max: 10,
+        min: 5,
+      ),
+      GradeItem(
+        id: 'g2',
+        title: 'امتحان شهرين',
+        category: 'امتحان شهرين',
+        date: now.subtract(const Duration(days: 10)),
+        score: 26,
+        max: 30,
+        min: 15,
+        weight: 2,
+      ),
+      GradeItem(
+        id: 'g3',
+        title: 'امتحان قصير 2',
+        category: 'امتحان قصير',
+        date: now.subtract(const Duration(days: 4)),
+        score: null, // not graded yet
+        max: 10,
+        min: 0,
+      ),
+      GradeItem(
+        id: 'g4',
+        title: 'واجب بيتي',
+        category: 'واجب',
+        date: now.subtract(const Duration(days: 2)),
+        score: 5,
+        max: 5,
+        min: 0,
+      ),
+    ]);
+  }
+}
+
 /// =======================
 /// Page
 /// =======================
@@ -53,7 +117,8 @@ class CourseGradesPage extends StatefulWidget {
   final String courseId;
   final String courseTitle;
   final String gradeLabel; // e.g. "الصف التاسع"
-  final List<GradeItem> items;
+  final List<GradeItem> items; // optional fallback if repo omitted it
+  final GradesRepository? repository;
 
   const CourseGradesPage({
     super.key,
@@ -61,6 +126,7 @@ class CourseGradesPage extends StatefulWidget {
     this.courseTitle = 'الرياضيات',
     this.gradeLabel = 'الصف التاسع',
     this.items = const [],
+    this.repository,
   });
 
   @override
@@ -68,220 +134,250 @@ class CourseGradesPage extends StatefulWidget {
 }
 
 class _CourseGradesPageState extends State<CourseGradesPage> {
-  // State: filters / search / sorting
+  // Filters / search / sorting
   String _query = '';
   String? _category; // null = all
   _SortBy _sortBy = _SortBy.date;
   bool _sortAsc = false;
 
-  late final List<GradeItem> _items;
+  late final GradesRepository _repo = widget.repository ?? FakeGradesRepository();
+  late Future<GradesData> _future;
 
   @override
   void initState() {
     super.initState();
-    _items = widget.items.isNotEmpty ? widget.items : _demo();
+    _future = _repo.fetch(widget.courseId);
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _future = _repo.fetch(widget.courseId));
+    await _future;
   }
 
   @override
   Widget build(BuildContext context) {
-    final categories = {
-      for (final i in _items) i.category,
-    }.toList()
-      ..sort();
-
-    // Filter + query
-    final filtered = _items.where((i) {
-      final cOk = _category == null || i.category == _category;
-      final q = _query.trim();
-      final qOk = q.isEmpty || i.title.contains(q) || i.category.contains(q);
-      return cOk && qOk;
-    }).toList();
-
-    // Sort
-    filtered.sort((a, b) {
-      int cmp;
-      switch (_sortBy) {
-        case _SortBy.date:
-          cmp = (a.date ?? DateTime(2000)).compareTo(b.date ?? DateTime(2000));
-          break;
-        case _SortBy.title:
-          cmp = a.title.compareTo(b.title);
-          break;
-        case _SortBy.category:
-          cmp = a.category.compareTo(b.category);
-          break;
-        case _SortBy.score:
-          cmp = (a.score ?? -1).compareTo(b.score ?? -1);
-          break;
-        case _SortBy.percent:
-          cmp = _percent(a).compareTo(_percent(b));
-          break;
-      }
-      return _sortAsc ? cmp : -cmp;
-    });
-
-    // Totals
-    final totals = _totals(_items);
-    final ftotals = _totals(filtered);
-    final percent = totals.max > 0 ? totals.score / totals.max : 0.0;
-
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Palette.pageBackground,
-        appBar: _GradesAppBar(title: widget.courseTitle, grade: widget.gradeLabel),
-        body: LayoutBuilder(builder: (context, c) {
-          final isWide = c.maxWidth >= 1100;
+      child: FutureBuilder<GradesData>(
+        future: _future,
+        builder: (context, snap) {
+          final isLoading = snap.connectionState == ConnectionState.waiting && !snap.hasData;
+          final hasError = snap.hasError;
+          final data = snap.data;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1300),
-                child: Column(
-                  children: [
-                    _BannerHeader(
-                      title: widget.courseTitle,
-                      grade: widget.gradeLabel,
-                      percent: percent,
-                      earned: totals.score,
-                      outOf: totals.max,
-                    ),
-                    const SizedBox(height: 20),
+          // Source of truth: repo -> fallback to widget.items
+          final allItems = data?.items.isNotEmpty == true ? data!.items : widget.items;
 
-                    Wrap(
-                      spacing: 20,
-                      runSpacing: 20,
-                      children: [
-                        // ------ Left column (stacks on small) ------
-                        SizedBox(
-                          width: isWide ? 420 : c.maxWidth,
-                          child: Column(
-                            children: [
-                              _Card(
-                                child: _SummaryCards(
-                                  overallEarned: totals.score,
-                                  overallMax: totals.max,
-                                  filteredEarned: ftotals.score,
-                                  filteredMax: ftotals.max,
-                                  notGraded: _items.where((e) => e.score == null).length,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              _Card(
-                                child: _CategoryFilter(
-                                  categories: categories,
-                                  selected: _category,
-                                  onChanged: (v) => setState(() => _category = v),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+          // Totals for banner
+          final totals = _totals(allItems);
+          final percent = totals.max > 0 ? totals.score / totals.max : 0.0;
 
-                        // ------ Right column (table) ------
-                        SizedBox(
-                          width: isWide ? (1300 - 420 - 20) : c.maxWidth,
-                          child: _Card(
-                            padding: EdgeInsets.zero,
+          return Scaffold(
+            backgroundColor: Palette.pageBackground,
+            appBar: _GradesAppBar(title: widget.courseTitle, grade: widget.gradeLabel),
+            body: hasError
+                ? _ErrorState(onRetry: _refresh)
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: LayoutBuilder(builder: (context, c) {
+                      final isWide = c.maxWidth >= 1100;
+
+                      if (isLoading && data == null) {
+                        return const _Skeleton();
+                      }
+
+                      // Filter categories
+                      final categories = allItems
+                          .map((e) => e.category)
+                          .toSet()
+                          .toList()
+                          ..sort();
+
+                      // Filter + query
+                      final filtered = allItems.where((i) {
+                        final cOk = _category == null || i.category == _category;
+                        final q = _query.trim();
+                        final qOk = q.isEmpty || i.title.contains(q) || i.category.contains(q);
+                        return cOk && qOk;
+                      }).toList();
+
+                      // Sort
+                      filtered.sort((a, b) {
+                        int cmp;
+                        switch (_sortBy) {
+                          case _SortBy.date:
+                            cmp = (a.date ?? DateTime(2000)).compareTo(b.date ?? DateTime(2000));
+                            break;
+                          case _SortBy.title:
+                            cmp = a.title.compareTo(b.title);
+                            break;
+                          case _SortBy.category:
+                            cmp = a.category.compareTo(b.category);
+                            break;
+                          case _SortBy.score:
+                            cmp = (a.score ?? -1).compareTo(b.score ?? -1);
+                            break;
+                          case _SortBy.percent:
+                            cmp = _percent(a).compareTo(_percent(b));
+                            break;
+                        }
+                        return _sortAsc ? cmp : -cmp;
+                      });
+
+                      final ftotals = _totals(filtered);
+
+                      return SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1300),
                             child: Column(
                               children: [
-                                // Search + sort row
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      _SearchField(
-                                        initialText: _query,
-                                        onChanged: (t) => setState(() => _query = t),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      _SortRow(
-                                        sortBy: _sortBy,
-                                        asc: _sortAsc,
-                                        onChanged: (by) => setState(() {
-                                          _sortAsc = by == _sortBy ? !_sortAsc : true;
-                                          _sortBy = by;
-                                        }),
-                                      ),
-                                    ],
-                                  ),
+                                _BannerHeader(
+                                  title: widget.courseTitle,
+                                  grade: widget.gradeLabel,
+                                  percent: percent,
+                                  earned: totals.score,
+                                  outOf: totals.max,
                                 ),
-                                const Divider(height: 1, color: Color(0x14555555)),
+                                const SizedBox(height: 20),
 
-                                // Data table (scrolls horizontally on small screens)
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    headingRowColor: WidgetStateProperty.all(
-                                      Palette.primary.withValues(alpha: 0.12),
-                                    ),
-                                    columnSpacing: 12,      // tighter spacing
-                                    horizontalMargin: 10,
-                                    dataRowMinHeight: 48,
-                                    dataRowMaxHeight: 64,
-                                    // ── Fixed widths per column (adjust as you like)
-                                    // date 110, title 260, category 160, score 90, max 90, min 90, percent 140, weight 90
-                                    columns: [
-                                      DataColumn(label: _w(110, _Header(label: 'التاريخ', onTap: () => _setSort(_SortBy.date)))),
-                                      DataColumn(label: _w(260, _Header(label: 'البند', onTap: () => _setSort(_SortBy.title)))),
-                                      DataColumn(label: _w(160, _Header(label: 'التصنيف', onTap: () => _setSort(_SortBy.category)))),
-                                      DataColumn(label: _w(90,  _Header(label: 'علامتي', onTap: () => _setSort(_SortBy.score)))),
-                                      DataColumn(label: _w(90,  _Header(label: 'العظمى'))),
-                                      DataColumn(label: _w(90,  _Header(label: 'الصغرى'))),
-                                      DataColumn(label: _w(140, _Header(label: 'النسبة', onTap: () => _setSort(_SortBy.percent)))),
-                                      DataColumn(label: _w(90,  _Header(label: 'الوزن'))),
-                                    ],
-                                    rows: filtered.map((e) {
-                                      final p = _percent(e);
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(_w(110, Text(fmtDate(e.date)))),
-                                          DataCell(_w(260, Text(
-                                            e.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ))),
-                                          DataCell(_w(160, _CategoryPill(text: e.category))),
-                                          DataCell(_w(90,  Text(fmtNum(e.score)))),
-                                          DataCell(_w(90,  Text(fmtNum(e.max)))),
-                                          DataCell(_w(90,  Text(fmtNum(e.min)))),
-                                          DataCell(_w(140, _PercentCell(value: p))), // adaptive & overflow-proof
-                                          DataCell(_w(90,  Text(e.weight == null ? '-' : fmtNum(e.weight)))),
+                                Wrap(
+                                  spacing: 20,
+                                  runSpacing: 20,
+                                  children: [
+                                    // ------ Left column (stacks on small) ------
+                                    SizedBox(
+                                      width: isWide ? 420 : c.maxWidth,
+                                      child: Column(
+                                        children: [
+                                          _Card(
+                                            child: _SummaryCards(
+                                              overallEarned: totals.score,
+                                              overallMax: totals.max,
+                                              filteredEarned: ftotals.score,
+                                              filteredMax: ftotals.max,
+                                              notGraded: allItems.where((e) => e.score == null).length,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 20),
+                                          _Card(
+                                            child: _CategoryFilter(
+                                              categories: categories,
+                                              selected: _category,
+                                              onChanged: (v) => setState(() => _category = v),
+                                            ),
+                                          ),
                                         ],
-                                      );
-                                    }).toList(),
-                                  ),
+                                      ),
+                                    ),
+
+                                    // ------ Right column (table) ------
+                                    SizedBox(
+                                      width: isWide ? (1300 - 420 - 20) : c.maxWidth,
+                                      child: _Card(
+                                        padding: EdgeInsets.zero,
+                                        child: Column(
+                                          children: [
+                                            // Search + sort row
+                                            Padding(
+                                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                children: [
+                                                  _SearchField(
+                                                    initialText: _query,
+                                                    onChanged: (t) => setState(() => _query = t),
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  _SortRow(
+                                                    sortBy: _sortBy,
+                                                    asc: _sortAsc,
+                                                    onChanged: (by) => setState(() {
+                                                      _sortAsc = by == _sortBy ? !_sortAsc : true;
+                                                      _sortBy = by;
+                                                    }),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const Divider(height: 1, color: Color(0x14555555)),
+
+                                            // Data table (scrolls horizontally on small screens)
+                                            SingleChildScrollView(
+                                              scrollDirection: Axis.horizontal,
+                                              child: DataTable(
+                                                headingRowColor: WidgetStateProperty.all(
+                                                  Palette.primary.withOpacity(.12),
+                                                ),
+                                                columnSpacing: 12,
+                                                horizontalMargin: 10,
+                                                dataRowMinHeight: 48,
+                                                dataRowMaxHeight: 64,
+                                                // date 110, title 260, category 160, score 90, max 90, min 90, percent 140, weight 90
+                                                columns: [
+                                                  DataColumn(label: _w(110, _Header(label: 'التاريخ', onTap: () => _setSort(_SortBy.date)))),
+                                                  DataColumn(label: _w(260, _Header(label: 'البند', onTap: () => _setSort(_SortBy.title)))),
+                                                  DataColumn(label: _w(160, _Header(label: 'التصنيف', onTap: () => _setSort(_SortBy.category)))),
+                                                  DataColumn(label: _w(90,  _Header(label: 'علامتي', onTap: () => _setSort(_SortBy.score)))),
+                                                  DataColumn(label: _w(90,  _Header(label: 'العظمى'))),
+                                                  DataColumn(label: _w(90,  _Header(label: 'الصغرى'))),
+                                                  DataColumn(label: _w(140, _Header(label: 'النسبة', onTap: () => _setSort(_SortBy.percent)))),
+                                                  DataColumn(label: _w(90,  _Header(label: 'الوزن'))),
+                                                ],
+                                                rows: filtered.map((e) {
+                                                  final p = _percent(e);
+                                                  return DataRow(
+                                                    cells: [
+                                                      DataCell(_w(110, Text(fmtDate(e.date)))),
+                                                      DataCell(_w(260, Text(
+                                                        e.title,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ))),
+                                                      DataCell(_w(160, _CategoryPill(text: e.category))),
+                                                      DataCell(_w(90,  Text(fmtNum(e.score)))),
+                                                      DataCell(_w(90,  Text(fmtNum(e.max)))),
+                                                      DataCell(_w(90,  Text(fmtNum(e.min)))),
+                                                      DataCell(_w(140, _PercentCell(value: p))),
+                                                      DataCell(_w(90,  Text(e.weight == null ? '-' : fmtNum(e.weight)))),
+                                                    ],
+                                                  );
+                                                }).toList(),
+                                              ),
+                                            ),
+
+                                            // filtered total
+                                            Container(
+                                              alignment: Alignment.centerRight,
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                              child: Text(
+                                                'المجموع (المعروض): ${fmtNum(ftotals.score)} / ${fmtNum(ftotals.max)}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Palette.text,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
 
-                                // filtered total
-                                Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  child: Text(
-                                    'المجموع (المعروض): ${fmtNum(ftotals.score)} / ${fmtNum(ftotals.max)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: Palette.text,
-                                    ),
-                                  ),
-                                ),
+                                const SizedBox(height: 16),
+                                const _SmallFooter(),
                               ],
                             ),
                           ),
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-                    const _SmallFooter(),
-                  ],
-                ),
-              ),
-            ),
+                      );
+                    }),
+                  ),
           );
-        }),
+        },
       ),
     );
   }
@@ -304,47 +400,6 @@ class _CourseGradesPageState extends State<CourseGradesPage> {
 
   double _percent(GradeItem i) =>
       (i.score == null || i.max <= 0) ? 0.0 : (i.score! / i.max).clamp(0, 1);
-
-  // -------- Demo data (replace with API) --------
-  List<GradeItem> _demo() => [
-        GradeItem(
-          id: 'g1',
-          title: 'امتحان قصير 1',
-          category: 'امتحان قصير',
-          date: DateTime.now().subtract(const Duration(days: 25)),
-          score: 8,
-          max: 10,
-          min: 5,
-        ),
-        GradeItem(
-          id: 'g2',
-          title: 'امتحان شهرين',
-          category: 'امتحان شهرين',
-          date: DateTime.now().subtract(const Duration(days: 10)),
-          score: 26,
-          max: 30,
-          min: 15,
-          weight: 2,
-        ),
-        GradeItem(
-          id: 'g3',
-          title: 'امتحان قصير 2',
-          category: 'امتحان قصير',
-          date: DateTime.now().subtract(const Duration(days: 4)),
-          score: null, // not graded yet
-          max: 10,
-          min: 0,
-        ),
-        GradeItem(
-          id: 'g4',
-          title: 'واجب بيتـي',
-          category: 'واجب',
-          date: DateTime.now().subtract(const Duration(days: 2)),
-          score: 5,
-          max: 5,
-          min: 0,
-        ),
-      ];
 }
 
 /// =======================
@@ -419,14 +474,14 @@ class _BannerHeader extends StatelessWidget {
           begin: Alignment.centerRight,
           end: Alignment.centerLeft,
           colors: [
-            Palette.primary.withValues(alpha: 0.95),
-            Palette.primary.withValues(alpha: 0.70),
+            Palette.primary.withOpacity(.95),
+            Palette.primary.withOpacity(.70),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(.05),
             blurRadius: 12,
             offset: const Offset(0, 5),
           ),
@@ -456,7 +511,7 @@ class _BannerHeader extends StatelessWidget {
                 Text(
                   grade,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
+                    color: Colors.white.withOpacity(.92),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -470,7 +525,7 @@ class _BannerHeader extends StatelessWidget {
                           value: percent,
                           minHeight: 10,
                           color: Colors.white,
-                          backgroundColor: Colors.white.withValues(alpha: 0.35),
+                          backgroundColor: Colors.white.withOpacity(.35),
                         ),
                       ),
                     ),
@@ -484,7 +539,7 @@ class _BannerHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'المجموع: ${fmtNum(earned)} / ${fmtNum(outOf)}',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
+                  style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 12),
                 ),
               ],
             ),
@@ -557,7 +612,7 @@ class _MetricTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: Palette.primary.withValues(alpha: 0.12),
+            backgroundColor: Palette.primary.withOpacity(.12),
             child: Icon(icon, size: 18, color: Palette.primary),
           ),
           const SizedBox(width: 10),
@@ -596,7 +651,7 @@ class _CategoryFilter extends StatelessWidget {
                 label: Text(c),
                 selected: selected == null ? c == 'الكل' : c == selected,
                 onSelected: (_) => onChanged(c == 'الكل' ? null : c),
-                selectedColor: Palette.primary.withValues(alpha: 0.18),
+                selectedColor: Palette.primary.withOpacity(.18),
                 side: const BorderSide(color: Color(0x22555555)),
                 backgroundColor: Colors.white,
                 labelStyle: TextStyle(
@@ -673,17 +728,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-DataColumn _col(String label, {VoidCallback? onTap}) => DataColumn(
-      label: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
-        ),
-      ),
-    );
-
 class _CategoryPill extends StatelessWidget {
   final String text;
   const _CategoryPill({required this.text});
@@ -693,7 +737,7 @@ class _CategoryPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Palette.primary.withValues(alpha: 0.12),
+        color: Palette.primary.withOpacity(.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: FittedBox(
@@ -738,7 +782,7 @@ class _PercentCell extends StatelessWidget {
                   value: value,
                   minHeight: 18,
                   color: Palette.primary,
-                  backgroundColor: Palette.primary.withValues(alpha: 0.15),
+                  backgroundColor: Palette.primary.withOpacity(.15),
                 ),
               ),
               Padding(
@@ -774,7 +818,7 @@ class _Card extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(.05),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -828,14 +872,103 @@ class _SmallFooter extends StatelessWidget {
       ),
       child: Row(
         children: const [
-          Text('© Palestine Learning',
-              style: TextStyle(color: Palette.subtitle, fontSize: 12)),
+          Text('© Palestine Learning', style: TextStyle(color: Palette.subtitle, fontSize: 12)),
           Spacer(),
           Icon(Icons.facebook_rounded, size: 18, color: Colors.black87),
           SizedBox(width: 8),
           Icon(Icons.camera_alt_rounded, size: 18, color: Colors.black87),
           SizedBox(width: 8),
           Icon(Icons.link_rounded, size: 18, color: Colors.black87),
+        ],
+      ),
+    );
+  }
+}
+
+/// =======================
+/// Error & Skeleton
+/// =======================
+
+class _ErrorState extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorState({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: Palette.subtitle),
+            const SizedBox(height: 10),
+            const Text('تعذر تحميل الصفحة. حاول مجددًا.', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget skel({double h = 16, double r = 10}) => Container(
+          height: h,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(.06),
+            borderRadius: BorderRadius.circular(r),
+          ),
+        );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      child: Column(
+        children: [
+          Container(
+            height: 126,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 170,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Container(
+                  height: 280,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         ],
       ),
     );

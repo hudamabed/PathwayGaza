@@ -1,124 +1,296 @@
 // lib/features/home/home_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/palette.dart';
 import '../../main.dart' show AppRoutes, CourseContentArgs, CourseGradesArgs;
 
-class HomePage extends StatelessWidget {
-  /// Pass these from login/signup (or a provider):
-  /// HomePage(studentName: 'أحمد محمد', studentGrade: 'الصف السادس')
+/* ======================= Data Layer (swap this with your backend) ======================= */
+
+/// Plain models you can also move to /models later.
+class Course {
+  final String id;            // stable id from backend
+  final String title;         // e.g. 'الرياضيات - الصف 6'
+  final IconData icon;        // you can replace with an icon code from backend
+  final double progress;      // 0..1
+  final bool locked;          // access control from backend
+  const Course({
+    required this.id,
+    required this.title,
+    required this.icon,
+    required this.progress,
+    required this.locked,
+  });
+
+  Course copyWith({double? progress, bool? locked}) => Course(
+        id: id,
+        title: title,
+        icon: icon,
+        progress: progress ?? this.progress,
+        locked: locked ?? this.locked,
+      );
+
+  // If your backend returns JSON, implement fromJson/toJson here.
+}
+
+class Activity {
+  final String title;
+  final DateTime when;
+  const Activity(this.title, this.when);
+}
+
+class HomeData {
   final String studentName;
   final String studentGrade;
+  final double overallPercent;
+  final int completedLessons;
+  final int totalLessons;
+  final int percentile;
+  final List<Activity> recent;
+  final List<Course> courses;
+  const HomeData({
+    required this.studentName,
+    required this.studentGrade,
+    required this.overallPercent,
+    required this.completedLessons,
+    required this.totalLessons,
+    required this.percentile,
+    required this.recent,
+    required this.courses,
+  });
+}
+
+/// Repository contract — implement this with your backend.
+abstract class HomeRepository {
+  Future<HomeData> fetchHome();
+}
+
+/// Working in-memory fake so the screen is fully functional now.
+class FakeHomeRepository implements HomeRepository {
+  @override
+  Future<HomeData> fetchHome() async {
+    // Simulate network delay
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+
+    final courses = <Course>[
+      Course(
+        id: 'math-g6',
+        title: 'الرياضيات - الصف 6',
+        icon: Icons.functions_rounded,
+        progress: 0.62,
+        locked: false,
+      ),
+      Course(
+        id: 'science-g6',
+        title: 'العلوم - الصف 6',
+        icon: Icons.science_rounded,
+        progress: 0.30,
+        locked: false,
+      ),
+      Course(
+        id: 'arabic-g6',
+        title: 'اللغة العربية - 6',
+        icon: Icons.menu_book_rounded,
+        progress: 0.12,
+        locked: true,
+      ),
+      Course(
+        id: 'digital-skills',
+        title: 'مهارات رقمية',
+        icon: Icons.computer_rounded,
+        progress: 0.80,
+        locked: false,
+      ),
+    ];
+
+    final recent = <Activity>[
+      Activity('أكملت اختبار “الجمع المطوّل”', DateTime.now().subtract(const Duration(hours: 2))),
+      Activity('شاهدت درس “دورة الماء في الطبيعة”', DateTime.now().subtract(const Duration(hours: 6))),
+      Activity('فتحت درس “علامات الترقيم – الفاصلة”', DateTime.now().subtract(const Duration(days: 1))),
+      Activity('راجعت ملخص “الجذور التربيعية”', DateTime.now().subtract(const Duration(days: 2))),
+      Activity('أكملت درس “المحيط والمساحة”', DateTime.now().subtract(const Duration(days: 4))),
+    ];
+
+    return HomeData(
+      studentName: 'اسم الطالب',
+      studentGrade: 'الصف السادس',
+      overallPercent: 0.54,
+      completedLessons: 27,
+      totalLessons: 50,
+      percentile: 78,
+      recent: recent,
+      courses: courses,
+    );
+  }
+}
+
+/* ======================= Home Screen ======================= */
+
+class HomePage extends StatefulWidget {
+  /// Optional injection for testing / swapping backends
+  final HomeRepository? repository;
+
+  /// You can pass these from login/signup (or provide via repository)
+  final String? studentName;
+  final String? studentGrade;
 
   const HomePage({
     super.key,
-    this.studentName = 'اسم الطالب',
-    this.studentGrade = 'الصف السادس',
+    this.repository,
+    this.studentName,
+    this.studentGrade,
   });
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late final HomeRepository _repo = widget.repository ?? FakeHomeRepository();
+  late Future<HomeData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _repo.fetchHome();
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _future = _repo.fetchHome();
+    });
+    await _future;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Palette.pageBackground,
-        appBar: _HomeAppBar(
-          studentName: studentName,
-          studentGrade: studentGrade,
-          onOpenCatalogue: () {
-            Navigator.of(context).pushNamed(AppRoutes.catalog);
-          },
-          onLogout: () {
-            // Navigate to login and clear history so back button won't return to Home
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              AppRoutes.login,
-              (route) => false,
-            );
-          },
-        ),
-        body: LayoutBuilder(
-          builder: (context, c) {
-            final isWide = c.maxWidth >= 1100;
+      child: FutureBuilder<HomeData>(
+        future: _future,
+        builder: (context, snap) {
+          final isLoading = snap.connectionState == ConnectionState.waiting;
+          final hasError = snap.hasError;
+          final data = snap.data;
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1400),
-                  child: Wrap(
-                    spacing: 28,
-                    runSpacing: 28,
-                    children: [
-                      // ===== Column A (visually right in RTL) =====
-                      SizedBox(
-                        width: isWide ? 440 : c.maxWidth,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _SectionCard(
-                              child: _ProgressSummary(
-                                overallPercent: 0.54,
-                                completedLessons: 27,
-                                totalLessons: 50,
-                                onShowGrades: () {
-                                  Navigator.of(context).pushNamed(
-                                    AppRoutes.grades,
-                                    arguments: const CourseGradesArgs(
-                                      courseId: 'demo-math-g9',
-                                      courseTitle: 'الرياضيات',
-                                      gradeLabel: 'الصف التاسع',
+          return Scaffold(
+            backgroundColor: Palette.pageBackground,
+            appBar: _HomeAppBar(
+              studentName: data?.studentName ?? widget.studentName ?? 'اسم الطالب',
+              studentGrade: data?.studentGrade ?? widget.studentGrade ?? 'الصف السادس',
+              onOpenCatalogue: () {
+                Navigator.of(context).pushNamed(AppRoutes.catalog);
+              },
+              onLogout: () {
+                Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (r) => false);
+              },
+            ),
+            body: hasError
+                ? _ErrorState(onRetry: _refresh)
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        final isWide = c.maxWidth >= 1100;
+
+                        // Skeleton while loading
+                        if (isLoading && data == null) {
+                          return _SkeletonHome(isWide: isWide);
+                        }
+
+                        final d = data!;
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1400),
+                              child: Wrap(
+                                spacing: 28,
+                                runSpacing: 28,
+                                children: [
+                                  // ===== Column A (visually right in RTL) =====
+                                  SizedBox(
+                                    width: isWide ? 440 : c.maxWidth,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _SectionCard(
+                                          child: _ProgressSummary(
+                                            overallPercent: d.overallPercent,
+                                            completedLessons: d.completedLessons,
+                                            totalLessons: d.totalLessons,
+                                            onShowGrades: () {
+                                              Navigator.of(context).pushNamed(
+                                                AppRoutes.grades,
+                                                arguments: const CourseGradesArgs(
+                                                  courseId: 'demo-math-g9',
+                                                  courseTitle: 'الرياضيات',
+                                                  gradeLabel: 'الصف التاسع',
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        _SectionCard(child: _CompareCard(percentile: d.percentile)),
+                                        const SizedBox(height: 24),
+                                        _SectionCard(
+                                          child: _RecentActivityList(
+                                            items: d.recent,
+                                            onTapItem: (a) {
+                                              // Navigate to the related resource if you have ids.
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(content: Text('فتح: ${a.title}')),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                },
+                                  ),
+
+                                  // ===== Column B (visually left in RTL) =====
+                                  SizedBox(
+                                    width: isWide ? (1400 - 440 - 28) : c.maxWidth,
+                                    child: _SectionCard(
+                                      padding: EdgeInsets.zero,
+                                      child: _CoursesGrid(
+                                        courses: d.courses,
+                                        onOpenCourse: (course) {
+                                          if (course.locked) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('أكمل المتطلبات لفتح هذا المحتوى')),
+                                            );
+                                            return;
+                                          }
+                                          Navigator.of(context).pushNamed(
+                                            AppRoutes.courseContent,
+                                            arguments: CourseContentArgs(
+                                              courseId: course.id,
+                                              courseTitle: _titleOnly(course.title),
+                                              gradeLabel: _gradeOnly(course.title) ?? d.studentGrade,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 24),
-                            const _SectionCard(child: _CompareCard(percentile: 78)),
-                            const SizedBox(height: 24),
-                            const _SectionCard(child: _RecentActivityList()),
-                          ],
-                        ),
-                      ),
-
-                      // ===== Column B (visually left in RTL) =====
-                      SizedBox(
-                        width: isWide ? (1400 - 440 - 28) : c.maxWidth,
-                        child: _SectionCard(
-                          padding: EdgeInsets.zero,
-                          child: _CoursesGrid(
-                            onOpenCourse: (course) {
-                              if (course.locked) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('أكمل المتطلبات لفتح هذا المحتوى')),
-                                );
-                                return;
-                              }
-                              Navigator.of(context).pushNamed(
-                                AppRoutes.courseContent,
-                                arguments: CourseContentArgs(
-                                  courseId: _toId(course.title),
-                                  courseTitle: _titleOnly(course.title),
-                                  gradeLabel: _gradeOnly(course.title) ?? 'الصف السادس',
-                                ),
-                              );
-                            },
                           ),
-                        ),
-                      ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
+          );
+        },
       ),
     );
   }
 
-  // crude helpers to derive ids/labels from demo title strings
-  static String _toId(String title) => title.toLowerCase().replaceAll(' ', '-');
+  // Helpers to parse demo title strings; keep until backend supplies explicit fields.
   static String _titleOnly(String title) {
-    // e.g. "الرياضيات - الصف 6" -> "الرياضيات"
     final parts = title.split('-');
     return parts.isNotEmpty ? parts.first.trim() : title;
   }
@@ -134,13 +306,13 @@ class HomePage extends StatelessWidget {
 
 class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onOpenCatalogue;
-  final VoidCallback onLogout; // <-- NEW
+  final VoidCallback onLogout;
   final String studentName;
   final String studentGrade;
 
   const _HomeAppBar({
     required this.onOpenCatalogue,
-    required this.onLogout, // <-- NEW
+    required this.onLogout,
     required this.studentName,
     required this.studentGrade,
   });
@@ -155,14 +327,11 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       centerTitle: true,
       titleSpacing: 6,
-
-      // 👤 name + grade chip — tonal, blended into the bar
       leadingWidth: 240,
       leading: Padding(
         padding: const EdgeInsetsDirectional.only(start: 10, end: 8),
         child: _AccountHeader(name: studentName, grade: studentGrade),
       ),
-
       title: const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -174,7 +343,6 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ],
       ),
-
       actionsIconTheme: const IconThemeData(color: Colors.white),
       actions: [
         TextButton(
@@ -209,7 +377,6 @@ class _AccountHeader extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 240, minHeight: 40),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        // translucent, blends with primary
         color: Colors.white.withOpacity(.18),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(.32)),
@@ -230,7 +397,7 @@ class _AccountHeader extends StatelessWidget {
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start, // visually left in RTL
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   name,
@@ -412,21 +579,14 @@ class _CompareCard extends StatelessWidget {
 }
 
 class _RecentActivityList extends StatelessWidget {
-  const _RecentActivityList({super.key, this.items, this.onTapItem});
+  const _RecentActivityList({super.key, required this.items, this.onTapItem});
 
-  final List<_Activity>? items;
-  final ValueChanged<_Activity>? onTapItem;
+  final List<Activity> items;
+  final ValueChanged<Activity>? onTapItem;
 
   @override
   Widget build(BuildContext context) {
-    final data = items ??
-        <_Activity>[
-          _Activity('أكملت اختبار “الجمع المطوّل”', DateTime.now().subtract(const Duration(hours: 2))),
-          _Activity('شاهدت درس “دورة الماء في الطبيعة”', DateTime.now().subtract(const Duration(hours: 6))),
-          _Activity('فتحت درس “علامات الترقيم – الفاصلة”', DateTime.now().subtract(const Duration(days: 1))),
-          _Activity('راجعت ملخص “الجذور التربيعية”', DateTime.now().subtract(const Duration(days: 2))),
-          _Activity('أكملت درس “المحيط والمساحة”', DateTime.now().subtract(const Duration(days: 4))),
-        ];
+    final data = items;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -468,18 +628,12 @@ class _RecentActivityList extends StatelessWidget {
 /* ======================= Courses Grid (Right Column) ======================= */
 
 class _CoursesGrid extends StatelessWidget {
-  final ValueChanged<_Course> onOpenCourse;
-  const _CoursesGrid({required this.onOpenCourse});
+  final List<Course> courses;
+  final ValueChanged<Course> onOpenCourse;
+  const _CoursesGrid({required this.courses, required this.onOpenCourse});
 
   @override
   Widget build(BuildContext context) {
-    final demoCourses = <_Course>[
-      _Course(title: 'الرياضيات - الصف 6', icon: Icons.functions_rounded, progress: 0.62, locked: false),
-      _Course(title: 'العلوم - الصف 6',   icon: Icons.science_rounded,    progress: 0.30, locked: false),
-      _Course(title: 'اللغة العربية - 6', icon: Icons.menu_book_rounded,  progress: 0.12, locked: true),
-      _Course(title: 'مهارات رقمية',      icon: Icons.computer_rounded,   progress: 0.80, locked: false),
-    ];
-
     return LayoutBuilder(builder: (context, c) {
       final w = c.maxWidth;
       final cross = w >= 1200 ? 3 : w >= 880 ? 2 : 1;
@@ -495,7 +649,7 @@ class _CoursesGrid extends StatelessWidget {
             const SizedBox(height: 12),
             GridView.builder(
               shrinkWrap: true,
-              itemCount: demoCourses.length,
+              itemCount: courses.length,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: cross,
@@ -504,8 +658,8 @@ class _CoursesGrid extends StatelessWidget {
                 childAspectRatio: 4 / 2,
               ),
               itemBuilder: (context, i) => _CourseTile(
-                course: demoCourses[i],
-                onOpen: () => onOpenCourse(demoCourses[i]),
+                course: courses[i],
+                onOpen: () => onOpenCourse(courses[i]),
               ),
             ),
           ],
@@ -516,7 +670,7 @@ class _CoursesGrid extends StatelessWidget {
 }
 
 class _CourseTile extends StatelessWidget {
-  final _Course course;
+  final Course course;
   final VoidCallback onOpen;
   const _CourseTile({required this.course, required this.onOpen});
 
@@ -641,18 +795,100 @@ class _CardTitle extends StatelessWidget {
   }
 }
 
-/* ======================= Models ======================= */
+/* ======================= Error & Skeleton ======================= */
 
-class _Course {
-  final String title;
-  final IconData icon;
-  final double progress;
-  final bool locked;
-  _Course({required this.title, required this.icon, required this.progress, required this.locked});
+class _ErrorState extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorState({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: Palette.subtitle),
+            const SizedBox(height: 10),
+            const Text('تعذر تحميل الصفحة. حاول مجددًا.', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _Activity {
-  final String title;
-  final DateTime when;
-  _Activity(this.title, this.when);
+class _SkeletonHome extends StatelessWidget {
+  final bool isWide;
+  const _SkeletonHome({required this.isWide});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget skel({double h = 16, double r = 10}) => Container(
+          height: h,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(.06),
+            borderRadius: BorderRadius.circular(r),
+          ),
+        );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1400),
+          child: Wrap(
+            spacing: 28,
+            runSpacing: 28,
+            children: [
+              SizedBox(
+                width: isWide ? 440 : double.infinity,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, 4))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          skel(h: 22),
+                          const SizedBox(height: 12),
+                          skel(h: 14),
+                          const SizedBox(height: 12),
+                          skel(h: 14),
+                          const SizedBox(height: 16),
+                          skel(h: 42, r: 12),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(height: 110, decoration: _box()),
+                    const SizedBox(height: 24),
+                    Container(height: 220, decoration: _box()),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: isWide ? (1400 - 440 - 28) : double.infinity,
+                child: Container(height: 420, decoration: _box()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _box() => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, 4))],
+      );
 }
