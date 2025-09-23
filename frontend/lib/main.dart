@@ -9,20 +9,28 @@ import 'package:gaza_learning_pathways/core/theme/palette.dart';
 import 'package:gaza_learning_pathways/features/home/home_page.dart';
 import 'package:gaza_learning_pathways/features/catalog/catalog_page.dart';
 import 'package:gaza_learning_pathways/features/auth/login_page.dart';
-import 'package:gaza_learning_pathways/features/auth/signup_page.dart';      // optional
-import 'package:gaza_learning_pathways/features/landing/landing_page.dart';  // optional
+import 'package:gaza_learning_pathways/features/auth/signup_page.dart'; // optional
+import 'package:gaza_learning_pathways/features/landing/landing_page.dart'; // optional
 
 // Course flows
 import 'package:gaza_learning_pathways/features/course/course_page.dart';
 import 'package:gaza_learning_pathways/features/course/course_content_page.dart';
 import 'package:gaza_learning_pathways/features/course/course_grades_page.dart';
 
-// Lesson screen + its args
+// Lesson & Quiz screens + their args
 import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart';
+import 'package:gaza_learning_pathways/features/lesson/quiz_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const _RootApp());
+  runApp(const MyApp()); // ✅ now exists
+}
+
+/* A tiny public wrapper so tests (and other packages) can pump the app. */
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) => const _RootApp();
 }
 
 /* ======================= Route Names + Args ======================= */
@@ -36,7 +44,8 @@ class AppRoutes {
   static const coursePage    = '/course-page';
   static const courseContent = '/course-content';
   static const grades        = '/grades';
-  static const lesson        = '/lesson';          // ✅ for LessonPage
+  static const lesson        = '/lesson';          // LessonPage
+  static const quiz          = '/quiz';            // ✅ NEW: QuizPage
 }
 
 class CourseContentArgs {
@@ -126,37 +135,37 @@ class _RootAppState extends State<_RootApp> {
         // ---------- Top-level ----------
         AppRoutes.home:   (_) => const HomePage(),
         AppRoutes.login:  (_) => const LoginPage(),
-        AppRoutes.signup: (_) => const SignupPage(),                                   // optional
-        AppRoutes.landing:(_) => LandingPage(                                          // ✅ pass required args
-              isArabic: _locale.languageCode == 'ar',
-              onToggleLanguage: _toggleLocale,
-            ),
-        AppRoutes.catalog:(_) => const CatalogPage(),
+        AppRoutes.signup: (_) => const SignupPage(), // optional
+        AppRoutes.landing: (_) => LandingPage(
+          isArabic: _locale.languageCode == 'ar',
+          onToggleLanguage: _toggleLocale,
+        ),
+        AppRoutes.catalog: (_) => const CatalogPage(),
 
         // ---------- Course ----------
         AppRoutes.coursePage: (context) {
           final args = ModalRoute.of(context)?.settings.arguments as CoursePageArgs?;
           return CoursePage(
             courseTitle: args?.courseTitle ?? demoCourseTitle,
-            gradeLabel: args?.gradeLabel  ?? demoGradeLabel,
+            gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
           );
         },
 
         AppRoutes.courseContent: (context) {
           final args = ModalRoute.of(context)?.settings.arguments as CourseContentArgs?;
           return CourseContentPage(
-            courseId:     args?.courseId     ?? demoCourseId,
-            courseTitle:  args?.courseTitle  ?? demoCourseTitle,
-            gradeLabel:   args?.gradeLabel   ?? demoGradeLabel,
+            courseId:    args?.courseId    ?? demoCourseId,
+            courseTitle: args?.courseTitle ?? demoCourseTitle,
+            gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
           );
         },
 
         AppRoutes.grades: (context) {
           final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
           return CourseGradesPage(
-            courseId:     args?.courseId     ?? demoCourseId,
-            courseTitle:  args?.courseTitle  ?? demoCourseTitle,
-            gradeLabel:   args?.gradeLabel   ?? demoGradeLabel,
+            courseId:    args?.courseId    ?? demoCourseId,
+            courseTitle: args?.courseTitle ?? demoCourseTitle,
+            gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
           );
         },
 
@@ -167,6 +176,16 @@ class _RootAppState extends State<_RootApp> {
             courseId:    args?.courseId    ?? demoCourseId,
             lessonId:    args?.lessonId    ?? 'demo-lesson',
             lessonTitle: args?.lessonTitle ?? 'درس تجريبي',
+          );
+        },
+
+        // ---------- Quiz (NEW) ----------
+        AppRoutes.quiz: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as QuizPageArgs?;
+          return QuizPage(
+            courseId:  args?.courseId  ?? demoCourseId,
+            quizId:    args?.quizId    ?? 'demo-quiz',
+            quizTitle: args?.quizTitle ?? 'اختبار قصير',
           );
         },
       },
