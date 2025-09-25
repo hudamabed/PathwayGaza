@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_yasg.utils import swagger_serializer_method
+
 from .models import Grade, Course, Lesson, Unit
 from quizzes.models import Quiz
 
@@ -21,6 +23,7 @@ class LessonSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'order', 'estimated_time',
                   'document_link', 'unit', 'quizzes']
 
+    @swagger_serializer_method(serializer_or_field=serializers.ListField)
     def get_quizzes(self, obj):
         # Get all quizzes that belong to lessons in this unit
         return [
