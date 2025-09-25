@@ -41,7 +41,7 @@ class UnitAdmin(admin.ModelAdmin):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ("title", "unit", "order", "document_link")
+    list_display = ("title", "unit", "order", "document_link", "estimated_time")
     list_filter = ("unit__course", "unit")  # filter by course or unit
     search_fields = ("title", "document_link")
     ordering = ("unit", "order")

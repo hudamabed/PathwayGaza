@@ -18,7 +18,7 @@ class LessonSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'order', 
+        fields = ['id', 'title', 'order', 'estimated_time',
                   'document_link', 'unit', 'quizzes']
 
     def get_quizzes(self, obj):

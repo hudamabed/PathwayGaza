@@ -46,6 +46,10 @@ class Lesson(models.Model):
     order = models.PositiveIntegerField(
         help_text="Order of lesson within the course")
     document_link = models.URLField(blank=True)
+    estimated_time = models.PositiveIntegerField(
+        help_text="Estimated time to complete the lesson in minutes",
+        null=True,
+    )
 
     # relations (FKs)
     unit = models.ForeignKey(
