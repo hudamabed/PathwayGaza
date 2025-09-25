@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from typing import List
+from drf_yasg.utils import swagger_serializer_method
 
 from .models import (
     Quiz,
@@ -90,9 +90,13 @@ class LessonQuizWithAttemptsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quiz
-        fields = ['id', 'title', 'description', 'time_limit', 'max_score', 'min_score', 'attempts']
+        fields = ['id', 'title', 'description', 'time_limit',
+                  'max_score', 'min_score', 'attempts']
 
-    def get_attempts(self, obj) -> List:
+    @swagger_serializer_method(
+        serializer_or_field=UserQuizAttemptSummarySerializer(many=True)
+    )
+    def get_attempts(self, obj):
         user = self.context['request'].user
         attempts = obj.attempts.filter(user=user).order_by('-attempted_at')
         return UserQuizAttemptSummarySerializer(attempts, many=True).data

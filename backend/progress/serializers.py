@@ -34,6 +34,10 @@ class OverallProgressSerializer(serializers.Serializer):
     completion_percentage = serializers.FloatField()
 
 
+class OverallProgressWithRankSerializer(OverallProgressSerializer):
+    top_percentile = serializers.FloatField()
+
+
 class LastActivitySerializer(serializers.ModelSerializer):
     lesson = LessonSerializer(read_only=True)
 

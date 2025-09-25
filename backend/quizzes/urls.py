@@ -6,7 +6,7 @@ from .views import (
     SubmitQuiz,
     UserQuizAttemptsListView,
     UserQuizAttemptDetailView,
-    LessonQuizzesListView,
+    LessonQuizzesAttemptsView,
 )
 
 
@@ -19,5 +19,5 @@ urlpatterns = [
     path('attempts/<int:attempt_id>/',
          UserQuizAttemptDetailView.as_view(), name='attempt-details'),
     path('attempts/lessons/<int:lesson_id>/',
-         LessonQuizzesListView.as_view(), name='lesson-quizzes-attempts-list'),
+         LessonQuizzesAttemptsView.as_view(), name='lesson-quizzes-attempts-list'),
 ]

@@ -1,3 +1,4 @@
+from django.db.models import Count, Q, F, FloatField, ExpressionWrapper
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -11,11 +12,11 @@ from .serializers import (
     LessonProgressSerializer,
     LessonProgressUpdateSerializer,
     OverallProgressSerializer,
+    OverallProgressWithRankSerializer,
     LastActivitySerializer
 )
 from .models import LessonProgress
 from learning.models import Lesson, Course
-from learning.serializers import LessonSerializer
 
 
 # ---------------------------
@@ -94,11 +95,11 @@ class LessonProgressView(APIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
-class CourseProgressView(APIView):
+class CourseLessonsProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_id="get_course_progress",
+        operation_id="get_course_lessons_progress",
         operation_description="Retrieve the authenticated user's progress for lessons in a given course. \
             Only lessons with progress are returned.",
         responses={200: LessonProgressSerializer(many=True)},
@@ -115,17 +116,56 @@ class CourseProgressView(APIView):
 
         serializer = LessonProgressSerializer(progress_qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
-
-# TODO: add top % for the student in the grade (compared to other students in the same grade)
-class OverallProgressSummaryView(APIView):
+class CourseOverallProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_id="overall_lessons_progress_summary",
-        operation_description="Get overall progress summary for all lessons for the authenticated user"
-        + "(total lessons, completed lessons, completion percentage)",
-        responses={200: OverallProgressSerializer},
+        operation_id="get_course_overall_progress",
+        operation_description="Retrieve the authenticated user's overall progress for a given course. \
+            Returns total lessons, completed lessons, and percentage completed.",
+        responses={200: OverallProgressSerializer()},
+    )
+    def get(self, request, course_id):
+        # Ensure course exists
+        course = get_object_or_404(Course, id=course_id)
+
+        # Get lessons that belong ONLY to this course
+        lessons_in_course = Lesson.objects.filter(unit__course=course)
+
+        total_lessons = lessons_in_course.count()
+
+        # Count completed lessons by this user in this course
+        completed_lessons = LessonProgress.objects.filter(
+            user=request.user,
+            lesson__in=lessons_in_course,
+            is_completed=True,
+        ).count()
+
+        # Compute percentage for this course
+        completion_percentage = (
+            (completed_lessons / total_lessons) * 100 if total_lessons > 0 else 0.0
+        )
+
+        data = {
+            "total_lessons": total_lessons,
+            "completed_lessons": completed_lessons,
+            "completion_percentage": round(completion_percentage, 2),
+        }
+
+        serializer = OverallProgressSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class OverallProgressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_id="get_overall_progress",
+        operation_description="Get overall progress summary for all lessons for the authenticated user \
+            (total lessons, completed lessons, completion percentage, top percentile in grade)",
+        responses={200: OverallProgressWithRankSerializer()},
     )
     def get(self, request):
         user = request.user
@@ -151,13 +191,36 @@ class OverallProgressSummaryView(APIView):
             100 if total_lessons > 0 else 0.0
         )
 
+        # Calculate top percentile
+        users_progress = (
+            LessonProgress.objects
+            .filter(lesson__unit__course__grade=user.grade)
+            .values('user')
+            .annotate(
+                completed_count=Count('id', filter=Q(is_completed=True))
+            )
+            .annotate(
+                completion_percentage=ExpressionWrapper(
+                    F('completed_count') * 100.0 / total_lessons,
+                    output_field=FloatField()
+                )
+            )
+            .order_by('-completion_percentage')
+        )
+
+        # Count how many users have a lower completion % than the current user
+        better_count = sum(1 for u in users_progress if u['completion_percentage'] > completion_percentage)
+        total_users = len(users_progress)
+        top_percentile = ((total_users - better_count) / total_users * 100) if total_users > 0 else 0.0
+
         data = {
             "total_lessons": total_lessons,
             "completed_lessons": completed_lessons,
             "completion_percentage": round(completion_percentage, 2),
+            "top_percentile": top_percentile
         }
 
-        serializer = OverallProgressSerializer(data)
+        serializer = OverallProgressWithRankSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Grade, Course, Lesson, Unit
+from quizzes.models import Quiz
 
 
 # ---------------------------
@@ -13,10 +14,19 @@ class GradeSerializer(serializers.ModelSerializer):
 
 class LessonSerializer(serializers.ModelSerializer):
     unit = serializers.PrimaryKeyRelatedField(read_only=True)
+    quizzes = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'order', 'document_link', 'unit']
+        fields = ['id', 'title', 'order', 
+                  'document_link', 'unit', 'quizzes']
+
+    def get_quizzes(self, obj):
+        # Get all quizzes that belong to lessons in this unit
+        return [
+            {"name": quiz.title, "duration": quiz.time_limit}
+            for quiz in Quiz.objects.filter(lesson=obj)
+        ]
 
 
 class UnitWithLessonsSerializer(serializers.ModelSerializer):
