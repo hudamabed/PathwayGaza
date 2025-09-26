@@ -135,10 +135,22 @@ class UserQuizAttemptsListView(APIView):
     @swagger_auto_schema(
         operation_id="user_quiz_attempts_list",
         operation_description="List all quiz attempts by the authenticated user.",
+        manual_parameters=[
+            openapi.Parameter(
+                "limit",
+                openapi.IN_QUERY,
+                description="Number of records to return (default: 5)",
+                type=openapi.TYPE_INTEGER,
+            )
+        ],
         responses={200: QuizAttemptSerializer(many=True)},
     )
     def get(self, request):
-        attempts = QuizAttempt.objects.filter(user=request.user).select_related("quiz")
+        limit = int(request.query_params.get("limit", 5))
+        attempts = QuizAttempt.objects \
+            .filter(user=request.user).select_related("quiz") \
+            .order_by('-attempted_at')[:limit]
+        
         serializer = QuizAttemptSerializer(attempts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -161,11 +173,11 @@ class UserQuizAttemptDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class LessonQuizzesListView(APIView):
+class LessonQuizzesAttemptsView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_id="lesson_quizzes_list",
+        operation_id="lesson_quizzes_attempts_list",
         operation_description="Retrieve a list of quizzes for a lesson with user's attempts (score, max/min score only).",
         manual_parameters=[
             openapi.Parameter(

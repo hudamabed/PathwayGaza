@@ -155,7 +155,7 @@ class ProgressAPITest(APITestCase):
             user=self.student, lesson=self.lesson1, is_completed=True
         )
 
-        url = reverse("course-progress", args=[self.course1.id])
+        url = reverse("course-lessons-progress", args=[self.course1.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -167,14 +167,15 @@ class ProgressAPITest(APITestCase):
     # ---------------------------
     # Overall progress summary
     # ---------------------------
-    def test_overall_progress_summary(self):
-        # No progress yet
-        url = reverse("overall-progress-summary")
+    def test_overall_progress(self):
+        url = reverse("overall-progress")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["total_lessons"], 2)
         self.assertEqual(response.data["completed_lessons"], 0)
-        self.assertEqual(response.data["completion_percentage"], 0.0)
+        self.assertEqual(response.data["completion_percentage"], 0)
+        self.assertIn("top_percentile", response.data)  # new field
+        self.assertEqual(response.data["top_percentile"], 0)
 
         # Complete one lesson
         LessonProgress.objects.create(
@@ -185,6 +186,35 @@ class ProgressAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["completed_lessons"], 1)
         self.assertEqual(response.data["completion_percentage"], 50.0)
+        self.assertEqual(response.data["top_percentile"], 100.0)
+        self.assertIn("top_percentile", response.data)
+
+    def test_overall_progress_with_more_users(self):
+        url = reverse("overall-progress")
+        response = self.client.get(url)
+        # create another user in the same grade
+        other_student = User.objects.create_user(
+            email="another@student.com",
+            username="otherstudent",
+            firebase_uid="other_uid",
+            grade=self.grade1,
+        )
+        LessonProgress.objects.create(
+            user=self.student, lesson=self.lesson1, is_completed=True
+        )
+        LessonProgress.objects.create(
+            user=other_student, lesson=self.lesson1, is_completed=True
+        )
+        LessonProgress.objects.create(
+            user=other_student, lesson=self.lesson2, is_completed=True
+        )
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["completed_lessons"], 1)
+        self.assertEqual(response.data["completion_percentage"], 50.0)
+        self.assertEqual(response.data["top_percentile"], 50.0)
+        self.assertIn("top_percentile", response.data)
 
     def test_overall_progress_no_grade(self):
         user_no_grade = User.objects.create_user(
@@ -194,13 +224,10 @@ class ProgressAPITest(APITestCase):
             grade=None
         )
         self.client.force_authenticate(user_no_grade)
-        url = reverse("overall-progress-summary")
+        url = reverse("overall-progress")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    # ---------------------------
-    # Last activity view
-    # ---------------------------
     def test_last_activity_view(self):
         # Create progress records with different access times
         p1 = LessonProgress.objects.create(
@@ -227,3 +254,26 @@ class ProgressAPITest(APITestCase):
         response = self.client.get(url, {"limit": 1})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
+
+        # Also check that default limit works
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)  # since we only have 2 lessons
+
+    def test_overall_progress_summary_top_percentile_multiple_users(self):
+        # Add another student in the same grade
+        other_student = User.objects.create_user(
+            email="other@example.com", username="other", grade=self.grade1, firebase_uid="other_uid"
+        )
+        # Other student completes 2 lessons
+        LessonProgress.objects.create(user=other_student, lesson=self.lesson1, is_completed=True)
+        LessonProgress.objects.create(user=other_student, lesson=self.lesson2, is_completed=True)
+
+        # Our original student has completed only 1 lesson
+        LessonProgress.objects.create(user=self.student, lesson=self.lesson1, is_completed=True)
+
+        url = reverse("overall-progress")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["top_percentile"], 50.0)  # one user better, one user worse
+
