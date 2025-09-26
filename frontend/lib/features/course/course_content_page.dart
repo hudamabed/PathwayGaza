@@ -1,9 +1,12 @@
 // lib/features/course/course_content_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart';
 import '../../core/theme/palette.dart';
-import '../../main.dart' show AppRoutes;                   // ✅ for named route
+import '../../main.dart' show AppRoutes; // ✅ for named routes
+import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart'
+    show LessonPageArgs; // ✅ lesson args
+import 'package:gaza_learning_pathways/features/lesson/quiz_page.dart'
+    show QuizPageArgs; // ✅ quiz args
 
 /* =====================
    Models (simple & API-friendly)
@@ -320,7 +323,8 @@ class _CourseContentPageState extends State<CourseContentPage> {
                                                         const Spacer(),
                                                         _StatusFilter(
                                                           value: _statusFilter,
-                                                          onChanged: (v) => setState(() => _statusFilter = v),
+                                                          onChanged: (v) =>
+                                                              setState(() => _statusFilter = v),
                                                         ),
                                                       ],
                                                     ),
@@ -347,10 +351,13 @@ class _CourseContentPageState extends State<CourseContentPage> {
                                               else
                                                 ListView.separated(
                                                   shrinkWrap: true,
-                                                  physics: const NeverScrollableScrollPhysics(),
-                                                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                                                  physics:
+                                                      const NeverScrollableScrollPhysics(),
+                                                  padding: const EdgeInsets.fromLTRB(
+                                                      12, 12, 12, 16),
                                                   itemCount: units.length,
-                                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                                  separatorBuilder: (_, __) =>
+                                                      const SizedBox(height: 12),
                                                   itemBuilder: (context, i) {
                                                     final unit = units[i];
                                                     return _UnitTile(
@@ -359,15 +366,29 @@ class _CourseContentPageState extends State<CourseContentPage> {
                                                       filter: _statusFilter,
                                                       query: _query,
                                                       onTapLesson: (lesson) {
-                                                        // ✅ Navigate to the Lesson screen
-                                                        Navigator.of(context).pushNamed(
-                                                          AppRoutes.lesson,
-                                                          arguments: LessonPageArgs(
-                                                            courseId: widget.courseId,
-                                                            lessonId: lesson.id,
-                                                            lessonTitle: lesson.title,
-                                                          ),
-                                                        );
+                                                        // ✅ Navigate by lesson type
+                                                        if (lesson.type ==
+                                                            LessonType.quiz) {
+                                                          Navigator.of(context).pushNamed(
+                                                            AppRoutes.quiz,
+                                                            arguments: QuizPageArgs(
+                                                              courseId: widget.courseId,
+                                                              quizId: lesson.id,
+                                                              quizTitle: lesson.title,
+                                                            ),
+                                                          );
+                                                        } else {
+                                                          Navigator.of(context)
+                                                              .pushNamed(
+                                                            AppRoutes.lesson,
+                                                            arguments: LessonPageArgs(
+                                                              courseId: widget.courseId,
+                                                              lessonId: lesson.id,
+                                                              lessonTitle:
+                                                                  lesson.title,
+                                                            ),
+                                                          );
+                                                        }
                                                       },
                                                     );
                                                   },
@@ -423,7 +444,8 @@ class _CourseBar extends StatelessWidget implements PreferredSizeWidget {
               '$title • $grade',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+              style:
+                  const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
             ),
           ),
         ],
@@ -524,7 +546,8 @@ class _BannerHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text('الدروس المكتملة: $completedCount / $totalCount',
-                    style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 12)),
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(.9), fontSize: 12)),
               ],
             ),
           ),
@@ -605,7 +628,8 @@ class _StatBox extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color? tint;
-  const _StatBox({required this.label, required this.value, required this.icon, this.tint});
+  const _StatBox(
+      {required this.label, required this.value, required this.icon, this.tint});
 
   @override
   Widget build(BuildContext context) {
@@ -629,8 +653,12 @@ class _StatBox extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 12, color: Palette.subtitle)),
-                Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                Text(label,
+                    style:
+                        const TextStyle(fontSize: 12, color: Palette.subtitle)),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800)),
               ],
             ),
           ),
@@ -660,7 +688,8 @@ class _SearchField extends StatelessWidget {
         prefixIcon: const Icon(Icons.search_rounded),
         filled: true,
         fillColor: const Color(0xFFF6F8FC),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0x11000000)),
@@ -700,7 +729,8 @@ class _StatusFilter extends StatelessWidget {
             ),
             side: const BorderSide(color: Color(0x22555555)),
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24)),
           ),
       ],
     );
@@ -749,7 +779,8 @@ class _UnitTileState extends State<_UnitTile> {
 
     // unit progress
     final total = widget.unit.lessons.length;
-    final done = widget.unit.lessons.where((l) => l.status == LessonStatus.completed).length;
+    final done =
+        widget.unit.lessons.where((l) => l.status == LessonStatus.completed).length;
     final p = total == 0 ? 0.0 : done / total;
 
     return Container(
@@ -769,11 +800,13 @@ class _UnitTileState extends State<_UnitTile> {
         onExpansionChanged: (v) => setState(() => _open = v),
         tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        trailing: Icon(_open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
+        trailing:
+            Icon(_open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(widget.unit.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(widget.unit.title,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -788,7 +821,8 @@ class _UnitTileState extends State<_UnitTile> {
             Row(
               children: [
                 Text('مكتملة: $done / $total',
-                    style: const TextStyle(fontSize: 12, color: Palette.subtitle)),
+                    style: const TextStyle(
+                        fontSize: 12, color: Palette.subtitle)),
               ],
             ),
           ],
@@ -797,7 +831,8 @@ class _UnitTileState extends State<_UnitTile> {
           if (filtered.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('لا يوجد عناصر مطابقة.', style: TextStyle(color: Palette.subtitle)),
+              child: Text('لا يوجد عناصر مطابقة.',
+                  style: TextStyle(color: Palette.subtitle)),
             )
           else
             ...filtered.map(
@@ -811,7 +846,6 @@ class _UnitTileState extends State<_UnitTile> {
     );
   }
 }
-
 class _LessonRow extends StatelessWidget {
   final Lesson lesson;
   final VoidCallback onTap;
@@ -819,21 +853,36 @@ class _LessonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (chipText, chipColor) = switch (lesson.status) {
-      LessonStatus.completed => ('منتهي', Colors.green),
-      LessonStatus.inProgress => ('تابع', Palette.primary),
-      LessonStatus.notStarted => ('ابدأ', Colors.orange),
+    final isQuiz = lesson.type == LessonType.quiz;
+
+    // Pick icon per type
+    final icon = switch (lesson.type) {
+      LessonType.video   => Icons.play_circle_fill_rounded,
+      LessonType.reading => Icons.menu_book_rounded,
+      LessonType.quiz    => Icons.fact_check_rounded, // clearer quiz icon
+      LessonType.live    => Icons.videocam_rounded,
     };
 
-    final icon = switch (lesson.type) {
-      LessonType.video => Icons.play_circle_fill_rounded,
-      LessonType.reading => Icons.menu_book_rounded,
-      LessonType.quiz => Icons.edit_note_rounded,
-      LessonType.live => Icons.videocam_rounded,
-    };
+    // Button/Chip text
+    String actionText;
+    Color  actionColor;
+    if (isQuiz) {
+      actionText = switch (lesson.status) {
+        LessonStatus.notStarted => 'ابدأ الاختبار',
+        LessonStatus.inProgress => 'تابع الاختبار',
+        LessonStatus.completed  => 'مراجعة الاختبار',
+      };
+      actionColor = Colors.redAccent; // make quiz CTA stand out
+    } else {
+      (actionText, actionColor) = switch (lesson.status) {
+        LessonStatus.completed  => ('منتهي', Colors.green),
+        LessonStatus.inProgress => ('تابع', Palette.primary),
+        LessonStatus.notStarted => ('ابدأ', Colors.orange),
+      };
+    }
 
     return InkWell(
-      onTap: onTap,
+      onTap: onTap, // tapping anywhere still navigates
       borderRadius: BorderRadius.circular(10),
       child: Container(
         margin: const EdgeInsets.only(top: 10),
@@ -847,11 +896,30 @@ class _LessonRow extends StatelessWidget {
           children: [
             Icon(icon, color: Palette.primary),
             const SizedBox(width: 10),
+            // Title + "اختبار" badge for quiz
             Expanded(
-              child: Text(
-                lesson.title,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      lesson.title,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  if (isQuiz) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text('اختبار',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ],
               ),
             ),
             if (lesson.duration != null) ...[
@@ -866,7 +934,23 @@ class _LessonRow extends StatelessWidget {
               ),
             ],
             const SizedBox(width: 12),
-            _StatusChip(text: chipText, color: chipColor, onTap: onTap),
+
+            // For quizzes show a big obvious CTA button; otherwise keep the chip
+            if (isQuiz)
+              ElevatedButton.icon(
+                onPressed: onTap, // same navigation
+                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                label: Text(actionText),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: actionColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              )
+            else
+              _StatusChip(text: actionText, color: actionColor, onTap: onTap),
           ],
         ),
       ),
@@ -885,7 +969,8 @@ class _CardTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Palette.text),
+      style: const TextStyle(
+          fontSize: 18, fontWeight: FontWeight.w800, color: Palette.text),
     );
   }
 }
@@ -920,7 +1005,8 @@ class _StatusChip extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _StatusChip({required this.text, required this.color, required this.onTap});
+  const _StatusChip(
+      {required this.text, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -931,9 +1017,11 @@ class _StatusChip extends StatelessWidget {
       style: TextButton.styleFrom(
         foregroundColor: Colors.white,
         backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         textStyle: const TextStyle(fontWeight: FontWeight.w800),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
       ),
     );
   }
@@ -947,7 +1035,8 @@ class _SmallFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -955,13 +1044,17 @@ class _SmallFooter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text('تابعنا:', style: TextStyle(fontWeight: FontWeight.w800, color: Palette.text)),
+          const Text('تابعنا:',
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, color: Palette.text)),
           const SizedBox(width: 8),
           _iconButton(Icons.facebook_rounded, const Color(0xFF1877F2)),
           _iconButton(Icons.camera_alt_rounded, null),
           _iconButton(Icons.link_rounded, null),
           const Spacer(),
-          const Text('© Palestine Learning', style: TextStyle(color: Palette.subtitle, fontSize: 12)),
+          const Text('© Palestine Learning',
+              style:
+                  TextStyle(color: Palette.subtitle, fontSize: 12)),
         ],
       ),
     );
@@ -996,9 +1089,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: Palette.subtitle),
+            const Icon(Icons.wifi_off_rounded,
+                size: 48, color: Palette.subtitle),
             const SizedBox(height: 10),
-            const Text('تعذر تحميل الصفحة. حاول مجددًا.', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Text('تعذر تحميل الصفحة. حاول مجددًا.',
+                style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             FilledButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
           ],
@@ -1025,17 +1120,35 @@ class _Skeleton extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       child: Column(
         children: [
-          Container(height: 126, decoration: BoxDecoration(color: Colors.black.withOpacity(.06), borderRadius: BorderRadius.circular(16))),
+          Container(
+              height: 126,
+              decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(.06),
+                  borderRadius: BorderRadius.circular(16))),
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(child: Container(height: 140, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)))),
+              Expanded(
+                  child: Container(
+                      height: 140,
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16)))),
               const SizedBox(width: 20),
-              Expanded(child: Container(height: 280, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)))),
+              Expanded(
+                  child: Container(
+                      height: 280,
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16)))),
             ],
           ),
           const SizedBox(height: 16),
-          Container(height: 60, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12))),
+          Container(
+              height: 60,
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12))),
         ],
       ),
     );

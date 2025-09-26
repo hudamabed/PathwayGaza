@@ -1,8 +1,12 @@
 // lib/features/home/home_page.dart
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ for name/claims
 import '../../core/theme/palette.dart';
 import '../../main.dart' show AppRoutes, CourseContentArgs, CourseGradesArgs;
+import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart' show LessonPageArgs;
 
 /* ======================= Data Layer (swap this with your backend) ======================= */
 
@@ -28,8 +32,6 @@ class Course {
         progress: progress ?? this.progress,
         locked: locked ?? this.locked,
       );
-
-  // If your backend returns JSON, implement fromJson/toJson here.
 }
 
 class Activity {
@@ -148,10 +150,51 @@ class _HomePageState extends State<HomePage> {
   late final HomeRepository _repo = widget.repository ?? FakeHomeRepository();
   late Future<HomeData> _future;
 
+  // ✅ Fallbacks pulled from Firebase user (if repo/props don’t provide them)
+  String? _fbName;
+  String? _fbGrade; // read from custom claim "grade" if present
+
+  // UI state for the resume button
+  bool _resuming = false;
+
   @override
   void initState() {
     super.initState();
     _future = _repo.fetchHome();
+    _loadFirebaseBasics();
+  }
+
+  Future<void> _loadFirebaseBasics() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Prefer displayName; else email local-part; else UID
+      final name = (user.displayName?.trim().isNotEmpty ?? false)
+          ? user.displayName!.trim()
+          : (user.email?.split('@').first ?? user.uid);
+
+      // Try to read a custom claim named 'grade'
+      String? grade;
+      try {
+        final token = await user.getIdTokenResult(true);
+        final g = token.claims?['grade'];
+        if (g != null && g.toString().trim().isNotEmpty) {
+          grade = g.toString().trim(); // e.g., "الصف التاسع" or "9"
+        }
+      } catch (_) {
+        // ignore claim errors – we’ll just fall back
+      }
+
+      if (mounted) {
+        setState(() {
+          _fbName = name;
+          _fbGrade = grade;
+        });
+      }
+    } catch (_) {
+      // ignore – UI will use other fallbacks
+    }
   }
 
   Future<void> _refresh() async {
@@ -159,6 +202,143 @@ class _HomePageState extends State<HomePage> {
       _future = _repo.fetchHome();
     });
     await _future;
+    // Also try refreshing token/claims in case grade changed
+    await _loadFirebaseBasics();
+  }
+
+  // ✅ Helper to pick the first non-empty string
+  String _firstNonEmpty(List<String?> items, String fallback) {
+    for (final s in items) {
+      if (s != null && s.trim().isNotEmpty) return s.trim();
+    }
+    return fallback;
+  }
+
+  // ---------- tiny JSON helpers for the "resume last lesson" call ----------
+  Map<String, dynamic> _asJson(http.Response r) {
+    if (r.statusCode >= 200 && r.statusCode < 300) {
+      try {
+        final body = r.body.isEmpty ? {} : jsonDecode(r.body);
+        if (body is Map<String, dynamic>) return body;
+        if (body is List) return {'_list': body};
+      } catch (_) {}
+    }
+    return {};
+  }
+
+  List<dynamic> _listIn(Map<String, dynamic> j) {
+    for (final k in const ['results', 'items', 'data', '_list']) {
+      final v = j[k];
+      if (v is List) return v;
+    }
+    return const [];
+  }
+
+  String? _pickStr(Map<String, dynamic> m, List<String> keys) {
+    for (final k in keys) {
+      final v = m[k];
+      if (v is String && v.trim().isNotEmpty) return v.trim();
+    }
+    return null;
+  }
+
+  Future<Map<String, String>> _authHeaders() async {
+    final h = <String, String>{'Accept': 'application/json'};
+    final tk = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    if (tk != null && tk.isNotEmpty) h['Authorization'] = 'Bearer $tk';
+    return h;
+  }
+
+  // ---------- actual resume logic ----------
+  Future<void> _resumeLastLesson({
+    required String defaultGrade,
+    Course? fallbackCourse,
+  }) async {
+    if (_resuming) return;
+    setState(() => _resuming = true);
+    const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:3000/api');
+
+    try {
+      final url = Uri.parse('$apiBase/progress/last-activity/?limit=1');
+      final r = await http.get(url, headers: await _authHeaders()).timeout(const Duration(seconds: 12));
+      final j = _asJson(r);
+      final list = _listIn(j);
+
+      Map<String, dynamic>? first;
+      for (final it in list) {
+        if (it is Map<String, dynamic>) {
+          first = it;
+          break;
+        }
+      }
+
+      // Try a variety of keys to be resilient to backend naming
+      final courseId   = first == null ? null : _pickStr(first, ['course', 'course_id', 'courseId', 'course_pk', 'course_uuid']);
+      final courseName = first == null ? null : _pickStr(first, ['course_title', 'courseName', 'course_label', 'title', 'name']);
+      final lessonId   = first == null ? null : _pickStr(first, ['lesson', 'lesson_id', 'lessonId', 'object_id', 'pk', 'id']);
+      final lessonName = first == null ? null : _pickStr(first, ['lesson_title', 'lessonName', 'title', 'name', 'label']);
+
+      if (lessonId != null && courseId != null) {
+        if (!mounted) return;
+        Navigator.of(context).pushNamed(
+          AppRoutes.lesson,
+          arguments: LessonPageArgs(
+            courseId: courseId,
+            lessonId: lessonId,
+            lessonTitle: lessonName ?? 'درس',
+          ),
+        );
+        return;
+      }
+
+      // Fallback: open the course content if we at least have a course
+      if (courseId != null) {
+        if (!mounted) return;
+        Navigator.of(context).pushNamed(
+          AppRoutes.courseContent,
+          arguments: CourseContentArgs(
+            courseId: courseId,
+            courseTitle: _titleOnly(courseName ?? 'المساق'),
+            gradeLabel: defaultGrade,
+          ),
+        );
+        return;
+      }
+
+      // Last fallback: use a local unlocked course (from HomeData)
+      if (fallbackCourse != null) {
+        if (!mounted) return;
+        Navigator.of(context).pushNamed(
+          AppRoutes.courseContent,
+          arguments: CourseContentArgs(
+            courseId: fallbackCourse.id,
+            courseTitle: _titleOnly(fallbackCourse.title),
+            gradeLabel: _gradeOnly(fallbackCourse.title) ?? defaultGrade,
+          ),
+        );
+        return;
+      }
+
+      // If absolutely nothing worked, open catalog.
+      if (!mounted) return;
+      Navigator.of(context).pushNamed(AppRoutes.catalog);
+    } catch (_) {
+      // Graceful fallback flows
+      if (fallbackCourse != null && mounted) {
+        Navigator.of(context).pushNamed(
+          AppRoutes.courseContent,
+          arguments: CourseContentArgs(
+            courseId: fallbackCourse.id,
+            courseTitle: _titleOnly(fallbackCourse.title),
+            gradeLabel: _gradeOnly(fallbackCourse.title) ?? defaultGrade,
+          ),
+        );
+      } else if (mounted) {
+        Navigator.of(context).pushNamed(AppRoutes.catalog);
+      }
+    } finally {
+      if (mounted) setState(() => _resuming = false);
+    }
   }
 
   @override
@@ -172,15 +352,21 @@ class _HomePageState extends State<HomePage> {
           final hasError = snap.hasError;
           final data = snap.data;
 
+          // ✅ Unified fallbacks priority: repo -> widget args -> Firebase -> defaults
+          final resolvedName  = _firstNonEmpty([data?.studentName, widget.studentName, _fbName], 'اسم الطالب');
+          final resolvedGrade = _firstNonEmpty([data?.studentGrade, widget.studentGrade, _fbGrade], 'الصف السادس');
+
           return Scaffold(
             backgroundColor: Palette.pageBackground,
             appBar: _HomeAppBar(
-              studentName: data?.studentName ?? widget.studentName ?? 'اسم الطالب',
-              studentGrade: data?.studentGrade ?? widget.studentGrade ?? 'الصف السادس',
+              studentName: resolvedName,
+              studentGrade: resolvedGrade,
               onOpenCatalogue: () {
                 Navigator.of(context).pushNamed(AppRoutes.catalog);
               },
-              onLogout: () {
+              onLogout: () async {
+                await FirebaseAuth.instance.signOut();
+                if (!mounted) return;
                 Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (r) => false);
               },
             ),
@@ -198,6 +384,14 @@ class _HomePageState extends State<HomePage> {
                         }
 
                         final d = data!;
+                        // pick a sensible unlocked course as a fallback
+                        Course? fallbackCourse;
+                        try {
+                          fallbackCourse = d.courses.firstWhere((c) => !c.locked);
+                        } catch (_) {
+                          if (d.courses.isNotEmpty) fallbackCourse = d.courses.first;
+                        }
+
                         return SingleChildScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
@@ -219,6 +413,11 @@ class _HomePageState extends State<HomePage> {
                                             overallPercent: d.overallPercent,
                                             completedLessons: d.completedLessons,
                                             totalLessons: d.totalLessons,
+                                            isResuming: _resuming,
+                                            onResumeLastLesson: () => _resumeLastLesson(
+                                              defaultGrade: resolvedGrade,
+                                              fallbackCourse: fallbackCourse,
+                                            ),
                                             onShowGrades: () {
                                               Navigator.of(context).pushNamed(
                                                 AppRoutes.grades,
@@ -238,7 +437,7 @@ class _HomePageState extends State<HomePage> {
                                           child: _RecentActivityList(
                                             items: d.recent,
                                             onTapItem: (a) {
-                                              // Navigate to the related resource if you have ids.
+                                              // If you later include IDs in Activity, you can navigate here as well.
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 SnackBar(content: Text('فتح: ${a.title}')),
                                               );
@@ -268,7 +467,7 @@ class _HomePageState extends State<HomePage> {
                                             arguments: CourseContentArgs(
                                               courseId: course.id,
                                               courseTitle: _titleOnly(course.title),
-                                              gradeLabel: _gradeOnly(course.title) ?? d.studentGrade,
+                                              gradeLabel: _gradeOnly(course.title) ?? resolvedGrade,
                                             ),
                                           );
                                         },
@@ -464,11 +663,17 @@ class _ProgressSummary extends StatelessWidget {
   final int totalLessons;
   final VoidCallback? onShowGrades;
 
+  // NEW:
+  final VoidCallback? onResumeLastLesson;
+  final bool isResuming;
+
   const _ProgressSummary({
     required this.overallPercent,
     required this.completedLessons,
     required this.totalLessons,
     this.onShowGrades,
+    this.onResumeLastLesson,
+    this.isResuming = false,
   });
 
   @override
@@ -511,12 +716,21 @@ class _ProgressSummary extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     textStyle: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('متابعة آخر درس...')),
-                    );
-                  },
-                  child: const Text('تابع آخر درس'),
+                  onPressed: isResuming ? null : onResumeLastLesson,
+                  child: isResuming
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            ),
+                            SizedBox(width: 10),
+                            Text('جارٍ فتح آخر درس'),
+                          ],
+                        )
+                      : const Text('تابع آخر درس'),
                 ),
               ),
             ),
