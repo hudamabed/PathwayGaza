@@ -71,7 +71,7 @@ The platform combines **Django REST Framework** as the backend with a **Flutter 
 | Name                | Role(s)                       | Responsitbilities                                  |
 |---------------------|------------------------------|-----------------------------------------|
 | Salsabeel Dwaikat   | Frontend Developer - Lead           | Flutter Web Developemnt |
-| Mahmoud KH          | Backend Developer  | Django (DRF), DB Models    |
+| Mahmoud Khatib      | Backend Developer  | Django (DRF), DB Models    |
 | Jenan Owies         | Frontend Developer           | UI/UX, Integration       |
 | Huda A'abed         | QA and Testing            | Testing    |
 
@@ -124,6 +124,15 @@ flutter pub get
 # Run in Chrome
 flutter run -d chrome
 ```
+
+---
+
+## 🧪 Testing & Documentation
+
+- **API Testing:** Postman was used to manually test all API endpoints.  
+- **Unit Tests:** Unit tests were written for Django apps to ensure backend functionality.  
+- **API Documentation:** Generated automatically using **Swagger UI**.  
+  - Accessible at: `http://127.0.0.1:8000/swagger/` when running the backend server.
 
 ---
 
