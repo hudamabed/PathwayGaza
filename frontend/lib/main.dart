@@ -2,6 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+// Firebase
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gaza_learning_pathways/features/home/home_api_repository.dart';
+import 'package:gaza_learning_pathways/features/lesson/quiz_api_repository.dart';
+import 'package:gaza_learning_pathways/firebase_options.dart';
+
 // Theme
 import 'package:gaza_learning_pathways/core/theme/palette.dart';
 
@@ -9,21 +16,48 @@ import 'package:gaza_learning_pathways/core/theme/palette.dart';
 import 'package:gaza_learning_pathways/features/home/home_page.dart';
 import 'package:gaza_learning_pathways/features/catalog/catalog_page.dart';
 import 'package:gaza_learning_pathways/features/auth/login_page.dart';
-import 'package:gaza_learning_pathways/features/auth/signup_page.dart'; // optional
-import 'package:gaza_learning_pathways/features/landing/landing_page.dart'; // optional
+import 'package:gaza_learning_pathways/features/auth/signup_page.dart';
+import 'package:gaza_learning_pathways/features/landing/landing_page.dart';
 
 // Course flows
 import 'package:gaza_learning_pathways/features/course/course_page.dart';
 import 'package:gaza_learning_pathways/features/course/course_content_page.dart';
 import 'package:gaza_learning_pathways/features/course/course_grades_page.dart';
+import 'package:gaza_learning_pathways/features/course/course_api_repository.dart';
 
 // Lesson & Quiz screens + their args
 import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart';
 import 'package:gaza_learning_pathways/features/lesson/quiz_page.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp()); // ✅ now exists
+
+  // ✅ Firebase init (web needs options)
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // ✅ Hardcoded dev login
+  const devEmail = 'changed@example.com';
+  const devPassword = '010203';
+
+  try {
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: devEmail,
+      password: devPassword,
+    );
+  } on FirebaseAuthException catch (e) {
+    if (e.code == 'user-not-found') {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: devEmail,
+        password: devPassword,
+      );
+    } else {
+      rethrow;
+    }
+  }
+
+  runApp(const MyApp());
 }
 
 /* A tiny public wrapper so tests (and other packages) can pump the app. */
@@ -38,14 +72,14 @@ class MyApp extends StatelessWidget {
 class AppRoutes {
   static const home          = '/home';
   static const login         = '/login';
-  static const signup        = '/signup';          // optional
-  static const landing       = '/landing';         // optional
+  static const signup        = '/signup';
+  static const landing       = '/landing';
   static const catalog       = '/catalog';
   static const coursePage    = '/course-page';
   static const courseContent = '/course-content';
   static const grades        = '/grades';
-  static const lesson        = '/lesson';          // LessonPage
-  static const quiz          = '/quiz';            // ✅ NEW: QuizPage
+  static const lesson        = '/lesson';
+  static const quiz          = '/quiz';
 }
 
 class CourseContentArgs {
@@ -71,9 +105,11 @@ class CourseGradesArgs {
 }
 
 class CoursePageArgs {
+  final String courseId;
   final String courseTitle;
   final String gradeLabel;
   const CoursePageArgs({
+    required this.courseId,
     required this.courseTitle,
     required this.gradeLabel,
   });
@@ -96,12 +132,26 @@ class _RootAppState extends State<_RootApp> {
     });
   }
 
+  Future<String?> _getFirebaseIdToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    return user.getIdToken(true); // force refresh
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Demo fallbacks
-    const demoCourseId    = 'demo-math-g9';
+    // ✅ Pick from --dart-define=API_BASE=..., else use proxy to dodge CORS
+    const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:3000/api');
+
+    // Demo defaults
+    const demoCourseId    = '1';
     const demoCourseTitle = 'الرياضيات';
     const demoGradeLabel  = 'الصف التاسع';
+
+    final repo = ApiCourseRepository(
+      baseUrl: apiBase,
+      getToken: _getFirebaseIdToken, // <-- add Bearer token
+    );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -133,9 +183,15 @@ class _RootAppState extends State<_RootApp> {
 
       routes: {
         // ---------- Top-level ----------
-        AppRoutes.home:   (_) => const HomePage(),
+     AppRoutes.home: (_) => HomePage(
+  repository: ApiHomeRepository(
+    baseUrl: apiBase,
+    getToken: _getFirebaseIdToken,
+  ),
+),
+
         AppRoutes.login:  (_) => const LoginPage(),
-        AppRoutes.signup: (_) => const SignupPage(), // optional
+        AppRoutes.signup: (_) => const SignupPage(),
         AppRoutes.landing: (_) => LandingPage(
           isArabic: _locale.languageCode == 'ar',
           onToggleLanguage: _toggleLocale,
@@ -146,8 +202,10 @@ class _RootAppState extends State<_RootApp> {
         AppRoutes.coursePage: (context) {
           final args = ModalRoute.of(context)?.settings.arguments as CoursePageArgs?;
           return CoursePage(
+            courseId:    args?.courseId    ?? demoCourseId,
             courseTitle: args?.courseTitle ?? demoCourseTitle,
             gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
+            repository:  repo,
           );
         },
 
@@ -160,14 +218,19 @@ class _RootAppState extends State<_RootApp> {
           );
         },
 
-        AppRoutes.grades: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
-          return CourseGradesPage(
-            courseId:    args?.courseId    ?? demoCourseId,
-            courseTitle: args?.courseTitle ?? demoCourseTitle,
-            gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
-          );
-        },
+       AppRoutes.grades: (context) {
+  final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
+  return CourseGradesPage(
+    courseId:    args?.courseId    ?? demoCourseId,
+    courseTitle: args?.courseTitle ?? demoCourseTitle,
+    gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
+    repository:  ApiGradesRepository(
+      baseUrl: apiBase,
+      getToken: _getFirebaseIdToken, // the same token provider you used for courses
+    ),
+  );
+},
+
 
         // ---------- Lesson ----------
         AppRoutes.lesson: (context) {
@@ -179,18 +242,22 @@ class _RootAppState extends State<_RootApp> {
           );
         },
 
-        // ---------- Quiz (NEW) ----------
+        // ---------- Quiz ----------
         AppRoutes.quiz: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as QuizPageArgs?;
-          return QuizPage(
-            courseId:  args?.courseId  ?? demoCourseId,
-            quizId:    args?.quizId    ?? 'demo-quiz',
-            quizTitle: args?.quizTitle ?? 'اختبار قصير',
-          );
-        },
+  final args = ModalRoute.of(context)?.settings.arguments as QuizPageArgs?;
+  return QuizPage(
+    courseId:  args?.courseId  ?? demoCourseId,
+    quizId:    args?.quizId    ?? 'demo-quiz',
+    quizTitle: args?.quizTitle ?? 'اختبار قصير',
+    repository: ApiQuizRepository(
+      baseUrl: apiBase,
+      getToken: _getFirebaseIdToken,
+    ),
+  );
+},
+
       },
 
-      // Fallback when a route is missing
       onUnknownRoute: (settings) => MaterialPageRoute(
         builder: (_) => Scaffold(
           appBar: AppBar(title: const Text('صفحة غير موجودة')),
