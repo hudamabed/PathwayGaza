@@ -276,4 +276,3 @@ class ProgressAPITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["top_percentile"], 50.0)  # one user better, one user worse
-

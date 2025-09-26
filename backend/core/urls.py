@@ -63,6 +63,5 @@ urlpatterns = [
     path("redoc/", schema_view.with_ui("redoc",
          cache_timeout=0), name="schema-redoc"),
 ]
-
 admin.site.site_header = 'Gaza Pathway'
 admin.site.site_title = 'Gaza Pathway'

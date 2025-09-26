@@ -1,0 +1,183 @@
+// lib/main.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+// Theme
+import 'package:gaza_learning_pathways/core/theme/palette.dart';
+
+// Top-level pages
+import 'package:gaza_learning_pathways/features/home/home_page.dart';
+import 'package:gaza_learning_pathways/features/catalog/catalog_page.dart';
+import 'package:gaza_learning_pathways/features/auth/login_page.dart';
+import 'package:gaza_learning_pathways/features/auth/signup_page.dart';      // optional
+import 'package:gaza_learning_pathways/features/landing/landing_page.dart';  // optional
+
+// Course flows
+import 'package:gaza_learning_pathways/features/course/course_page.dart';
+import 'package:gaza_learning_pathways/features/course/course_content_page.dart';
+import 'package:gaza_learning_pathways/features/course/course_grades_page.dart';
+
+// Lesson screen + its args
+import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const _RootApp());
+}
+
+/* ======================= Route Names + Args ======================= */
+
+class AppRoutes {
+  static const home          = '/home';
+  static const login         = '/login';
+  static const signup        = '/signup';          // optional
+  static const landing       = '/landing';         // optional
+  static const catalog       = '/catalog';
+  static const coursePage    = '/course-page';
+  static const courseContent = '/course-content';
+  static const grades        = '/grades';
+  static const lesson        = '/lesson';          // ✅ for LessonPage
+}
+
+class CourseContentArgs {
+  final String courseId;
+  final String courseTitle;
+  final String gradeLabel;
+  const CourseContentArgs({
+    required this.courseId,
+    required this.courseTitle,
+    required this.gradeLabel,
+  });
+}
+
+class CourseGradesArgs {
+  final String courseId;
+  final String courseTitle;
+  final String gradeLabel;
+  const CourseGradesArgs({
+    required this.courseId,
+    required this.courseTitle,
+    required this.gradeLabel,
+  });
+}
+
+class CoursePageArgs {
+  final String courseTitle;
+  final String gradeLabel;
+  const CoursePageArgs({
+    required this.courseTitle,
+    required this.gradeLabel,
+  });
+}
+
+/* ======================= App ======================= */
+
+class _RootApp extends StatefulWidget {
+  const _RootApp({super.key});
+  @override
+  State<_RootApp> createState() => _RootAppState();
+}
+
+class _RootAppState extends State<_RootApp> {
+  Locale _locale = const Locale('ar');
+
+  void _toggleLocale() {
+    setState(() {
+      _locale = _locale.languageCode == 'ar' ? const Locale('en') : const Locale('ar');
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Demo fallbacks
+    const demoCourseId    = 'demo-math-g9';
+    const demoCourseTitle = 'الرياضيات';
+    const demoGradeLabel  = 'الصف التاسع';
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Gaza Learning Pathways',
+
+      // Localization
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('ar'), Locale('en')],
+      locale: _locale,
+
+      // Theme
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: Palette.primary),
+        scaffoldBackgroundColor: Palette.pageBackground,
+        datePickerTheme: const DatePickerThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+        ),
+      ),
+
+      // Start here
+      initialRoute: AppRoutes.home,
+
+      routes: {
+        // ---------- Top-level ----------
+        AppRoutes.home:   (_) => const HomePage(),
+        AppRoutes.login:  (_) => const LoginPage(),
+        AppRoutes.signup: (_) => const SignupPage(),                                   // optional
+        AppRoutes.landing:(_) => LandingPage(                                          // ✅ pass required args
+              isArabic: _locale.languageCode == 'ar',
+              onToggleLanguage: _toggleLocale,
+            ),
+        AppRoutes.catalog:(_) => const CatalogPage(),
+
+        // ---------- Course ----------
+        AppRoutes.coursePage: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as CoursePageArgs?;
+          return CoursePage(
+            courseTitle: args?.courseTitle ?? demoCourseTitle,
+            gradeLabel: args?.gradeLabel  ?? demoGradeLabel,
+          );
+        },
+
+        AppRoutes.courseContent: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as CourseContentArgs?;
+          return CourseContentPage(
+            courseId:     args?.courseId     ?? demoCourseId,
+            courseTitle:  args?.courseTitle  ?? demoCourseTitle,
+            gradeLabel:   args?.gradeLabel   ?? demoGradeLabel,
+          );
+        },
+
+        AppRoutes.grades: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
+          return CourseGradesPage(
+            courseId:     args?.courseId     ?? demoCourseId,
+            courseTitle:  args?.courseTitle  ?? demoCourseTitle,
+            gradeLabel:   args?.gradeLabel   ?? demoGradeLabel,
+          );
+        },
+
+        // ---------- Lesson ----------
+        AppRoutes.lesson: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as LessonPageArgs?;
+          return LessonPage(
+            courseId:    args?.courseId    ?? demoCourseId,
+            lessonId:    args?.lessonId    ?? 'demo-lesson',
+            lessonTitle: args?.lessonTitle ?? 'درس تجريبي',
+          );
+        },
+      },
+
+      // Fallback when a route is missing
+      onUnknownRoute: (settings) => MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('صفحة غير موجودة')),
+          body: Center(child: Text('المسار غير معروف: ${settings.name}')),
+        ),
+      ),
+    );
+  }
+}

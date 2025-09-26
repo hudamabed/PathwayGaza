@@ -6,7 +6,6 @@ from rest_framework.generics import get_object_or_404
 from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
 
-
 from .models import Grade, Course, Unit
 from .serializers import (
     GradeSerializer,
@@ -57,6 +56,7 @@ class StudentCoursesListView(APIView):
         courses = grade.courses.all()
         serializer = CourseSerializer(courses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 # ---------------------------
 # Get lessons within a certain course

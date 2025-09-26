@@ -212,7 +212,6 @@ class OverallProgressView(APIView):
         better_count = sum(1 for u in users_progress if u['completion_percentage'] > completion_percentage)
         total_users = len(users_progress)
         top_percentile = ((total_users - better_count) / total_users * 100) if total_users > 0 else 0.0
-
         data = {
             "total_lessons": total_lessons,
             "completed_lessons": completed_lessons,

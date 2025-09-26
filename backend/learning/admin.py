@@ -2,9 +2,10 @@ from django.contrib import admin
 from .models import Grade, Course, Lesson, Unit
 
 
+
 class LessonInline(admin.TabularInline):
     model = Lesson
-    extra = 1
+    extra = 1  # how many blank lessons to show by default
     fields = ("order", "title", "document_link")
     ordering = ("order",)
 
