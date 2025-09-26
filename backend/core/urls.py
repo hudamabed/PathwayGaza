@@ -51,6 +51,7 @@ urlpatterns = [
     path('api/users/', include('users.urls')),
     path('api/learning/', include('learning.urls')),
     path('api/progress/', include('progress.urls')),
+    path('api/quizzes/', include('quizzes.urls')),
     path(
         'health/',
         lambda request: JsonResponse({'status': 'ok'}), name='health_check',
@@ -62,3 +63,5 @@ urlpatterns = [
     path("redoc/", schema_view.with_ui("redoc",
          cache_timeout=0), name="schema-redoc"),
 ]
+admin.site.site_header = 'Gaza Pathway'
+admin.site.site_title = 'Gaza Pathway'

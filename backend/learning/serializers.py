@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Grade, Course, Lesson
+from drf_yasg.utils import swagger_serializer_method
+
+from .models import Grade, Course, Lesson, Unit
+from quizzes.models import Quiz
 
 
 # ---------------------------
@@ -11,13 +14,35 @@ class GradeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description']
 
 
-# ---------------------------
-# Lesson Serializer
-# ---------------------------
 class LessonSerializer(serializers.ModelSerializer):
+    unit = serializers.PrimaryKeyRelatedField(read_only=True)
+    quizzes = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'order', 'document_link', 'course']
+        fields = ['id', 'title', 'order', 'estimated_time',
+                  'document_link', 'unit', 'quizzes']
+
+    @swagger_serializer_method(serializer_or_field=serializers.ListField)
+    def get_quizzes(self, obj):
+        # Get all quizzes that belong to lessons in this unit
+        return [
+            {"name": quiz.title, "duration": quiz.time_limit}
+            for quiz in Quiz.objects.filter(lesson=obj)
+        ]
+
+
+class UnitWithLessonsSerializer(serializers.ModelSerializer):
+    lessons = LessonSerializer(many=True, read_only=True)
+    course = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Unit
+        fields = ['id', 'title', 'description', 'course',
+                  'order', 'lessons']
+        
+    def get_course(self, obj):
+        return obj.course.id if obj else None
 
 
 # ---------------------------
@@ -37,5 +62,4 @@ class CourseSerializer(serializers.ModelSerializer):
                   'grade_id', 'lessons_count']
 
     def get_lessons_count(self, obj):
-        # obj is the Course instance
-        return obj.lessons.count()
+        return Lesson.objects.filter(unit__course=obj).count()
