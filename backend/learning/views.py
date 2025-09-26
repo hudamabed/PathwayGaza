@@ -2,16 +2,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
 
-
-from .models import Grade, Course
+from .models import Grade, Course, Unit
 from .serializers import (
     GradeSerializer,
     CourseSerializer,
-    LessonSerializer
+    UnitWithLessonsSerializer,
 )
 
 User = get_user_model()
@@ -47,20 +46,16 @@ class StudentCoursesListView(APIView):
         responses={200: CourseSerializer(many=True)},
     )
     def get(self, request):
-        grade = get_object_or_404(Grade, id=request.user.grade.id)
+        if not request.user.grade:
+            return Response(
+                {"detail": "User is not enrolled in any grade."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        grade = request.user.grade
         courses = grade.courses.all()
         serializer = CourseSerializer(courses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# class CourseListView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def get(self, request, grade_id):
-#         grade = get_object_or_404(Grade, id=grade_id)
-#         courses = grade.courses.all()
-#         serializer = CourseSerializer(courses, many=True)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ---------------------------
@@ -71,12 +66,11 @@ class LessonListView(APIView):
 
     @swagger_auto_schema(
         operation_id="get_lessons_list",
-        operation_description="Retrieve all lessons for a certain course",
-        responses={200: LessonSerializer(many=True)},
+        operation_description="Retrieve all lessons for a certain course, grouped by unit",
+        responses={200: UnitWithLessonsSerializer(many=True)},
     )
     def get(self, request, course_id):
         course = get_object_or_404(Course, id=course_id)
-        lessons = course.lessons.all()
-        serializer = LessonSerializer(lessons, many=True)
+        units = Unit.objects.filter(course=course).prefetch_related("lessons")
+        serializer = UnitWithLessonsSerializer(units, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    

@@ -10,15 +10,17 @@ from learning.serializers import LessonSerializer
 # ---------------------------
 class LessonProgressSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
-    lesson = LessonSerializer(read_only=True)
-    lesson_id = serializers.PrimaryKeyRelatedField(
-        queryset=Lesson.objects.all(), source='lesson', write_only=True
-    )
+    lesson = serializers.SerializerMethodField()
+
+    def get_lesson(self, obj):
+        return {
+            "id": obj.lesson.id,
+            "name": obj.lesson.title
+        }
 
     class Meta:
         model = LessonProgress
-        fields = ['id', 'user', 'lesson', 'lesson_id',
-                  'is_completed', 'last_accessed']
+        fields = ['id', 'user', 'lesson', 'is_completed', 'last_accessed']
 
 
 class LessonProgressUpdateSerializer(serializers.Serializer):
@@ -34,8 +36,18 @@ class OverallProgressSerializer(serializers.Serializer):
     completion_percentage = serializers.FloatField()
 
 
+class OverallProgressWithRankSerializer(OverallProgressSerializer):
+    top_percentile = serializers.FloatField()
+
+
 class LastActivitySerializer(serializers.ModelSerializer):
-    lesson = LessonSerializer(read_only=True)
+    lesson = serializers.SerializerMethodField()
+
+    def get_lesson(self, obj):
+        return {
+            "id": obj.lesson.id,
+            "name": obj.lesson.title
+        }
 
     class Meta:
         model = LessonProgress

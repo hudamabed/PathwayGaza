@@ -1,8 +1,9 @@
+from django.db.models import Count, Q, F, FloatField, ExpressionWrapper
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -11,11 +12,11 @@ from .serializers import (
     LessonProgressSerializer,
     LessonProgressUpdateSerializer,
     OverallProgressSerializer,
+    OverallProgressWithRankSerializer,
     LastActivitySerializer
 )
 from .models import LessonProgress
 from learning.models import Lesson, Course
-from learning.serializers import LessonSerializer
 
 
 # ---------------------------
@@ -94,56 +95,77 @@ class LessonProgressView(APIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
-class CourseProgressView(APIView):
+class CourseLessonsProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_id="get_course_lessons_progress_list",
-        operation_description="Retrieve the authenticated user's progress for all lessons in a given course. \
-            If no progress exists, return lesson with is_completed=False, and id=None",
+        operation_id="get_course_lessons_progress",
+        operation_description="Retrieve the authenticated user's progress for lessons in a given course. \
+            Only lessons with progress are returned.",
         responses={200: LessonProgressSerializer(many=True)},
     )
     def get(self, request, course_id):
         # Ensure course exists
         course = get_object_or_404(Course, id=course_id)
 
-        # Get all lessons in the course
-        lessons = Lesson.objects.filter(course=course)
-
-        # Get all progress entries for this user in this course (one query)
+        # Get progress entries for this user in this course
         progress_qs = LessonProgress.objects.filter(
-            user=request.user, lesson__course=course
-        ).select_related("lesson")
+            user=request.user,
+            lesson__unit__course=course  # go via unit
+        ).select_related("lesson", "lesson__unit")
 
-        # Map progress by lesson_id for quick lookup
-        progress_map = {p.lesson_id: p for p in progress_qs}
+        serializer = LessonProgressSerializer(progress_qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
-        data = []
-        for lesson in lessons:
-            progress = progress_map.get(lesson.id)
-            if progress:
-                item = LessonProgressSerializer(progress).data
-            else:
-                item = {
-                    "id": None,
-                    "user": str(request.user),  # or request.user.username
-                    "lesson": LessonSerializer(lesson).data,
-                    "is_completed": False,
-                    "last_accessed": None,
-                }
-            data.append(item)
-
-        return Response(data, status=status.HTTP_200_OK)
-
-
-class OverallProgressSummaryView(APIView):
+class CourseOverallProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_id="overall_lessons_progress_summary",
-        operation_description="Get overall progress summary for all lessons for the authenticated user"
-        + "(total lessons, completed lessons, completion percentage)",
-        responses={200: OverallProgressSerializer},
+        operation_id="get_course_overall_progress",
+        operation_description="Retrieve the authenticated user's overall progress for a given course. \
+            Returns total lessons, completed lessons, and percentage completed.",
+        responses={200: OverallProgressSerializer()},
+    )
+    def get(self, request, course_id):
+        # Ensure course exists
+        course = get_object_or_404(Course, id=course_id)
+
+        # Get lessons that belong ONLY to this course
+        lessons_in_course = Lesson.objects.filter(unit__course=course)
+
+        total_lessons = lessons_in_course.count()
+
+        # Count completed lessons by this user in this course
+        completed_lessons = LessonProgress.objects.filter(
+            user=request.user,
+            lesson__in=lessons_in_course,
+            is_completed=True,
+        ).count()
+
+        # Compute percentage for this course
+        completion_percentage = (
+            (completed_lessons / total_lessons) * 100 if total_lessons > 0 else 0.0
+        )
+
+        data = {
+            "total_lessons": total_lessons,
+            "completed_lessons": completed_lessons,
+            "completion_percentage": round(completion_percentage, 2),
+        }
+
+        serializer = OverallProgressSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class OverallProgressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_id="get_overall_progress",
+        operation_description="Get overall progress summary for all lessons for the authenticated user \
+            (total lessons, completed lessons, completion percentage, top percentile in grade)",
+        responses={200: OverallProgressWithRankSerializer()},
     )
     def get(self, request):
         user = request.user
@@ -154,11 +176,13 @@ class OverallProgressSummaryView(APIView):
             )
 
         # All lessons for the user's grade (via courses in that grade)
-        total_lessons = Lesson.objects.filter(course__grade=user.grade).count()
+        total_lessons = Lesson.objects.filter(unit__course__grade=user.grade).count()
 
         # Lessons the user has completed
         completed_lessons = LessonProgress.objects.filter(
-            user=user, is_completed=True
+            user=user,
+            is_completed=True,
+            lesson__unit__course__grade=user.grade  # optional, if you want to restrict by grade
         ).count()
 
         # Calculate percentage
@@ -167,13 +191,35 @@ class OverallProgressSummaryView(APIView):
             100 if total_lessons > 0 else 0.0
         )
 
+        # Calculate top percentile
+        users_progress = (
+            LessonProgress.objects
+            .filter(lesson__unit__course__grade=user.grade)
+            .values('user')
+            .annotate(
+                completed_count=Count('id', filter=Q(is_completed=True))
+            )
+            .annotate(
+                completion_percentage=ExpressionWrapper(
+                    F('completed_count') * 100.0 / total_lessons,
+                    output_field=FloatField()
+                )
+            )
+            .order_by('-completion_percentage')
+        )
+
+        # Count how many users have a lower completion % than the current user
+        better_count = sum(1 for u in users_progress if u['completion_percentage'] > completion_percentage)
+        total_users = len(users_progress)
+        top_percentile = ((total_users - better_count) / total_users * 100) if total_users > 0 else 0.0
         data = {
             "total_lessons": total_lessons,
             "completed_lessons": completed_lessons,
             "completion_percentage": round(completion_percentage, 2),
+            "top_percentile": top_percentile
         }
 
-        serializer = OverallProgressSerializer(data)
+        serializer = OverallProgressWithRankSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
