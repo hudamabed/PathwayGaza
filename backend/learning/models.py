@@ -49,6 +49,7 @@ class Lesson(models.Model):
     estimated_time = models.PositiveIntegerField(
         help_text="Estimated time to complete the lesson in minutes",
         null=True,
+        blank=True,
     )
 
     # relations (FKs)
