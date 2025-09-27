@@ -22,7 +22,6 @@ The platform combines **Django REST Framework** as the backend with a **Flutter 
 
 - 🔑 **Authentication with Firebase** (Login / Signup)  
 - 🏠 Personalized **student dashboard**  
-- 📚 **Courses & lessons** organized by grade level  
 - 📖 **Learning materials** with explanations and resources  
 - 📝 **Quizzes** for each lesson to test understanding  
 - 🌐 **Arabic language support**  
