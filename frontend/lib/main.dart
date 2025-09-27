@@ -5,8 +5,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 // Firebase
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:gaza_learning_pathways/features/home/home_api_repository.dart';
-import 'package:gaza_learning_pathways/features/lesson/quiz_api_repository.dart';
 import 'package:gaza_learning_pathways/firebase_options.dart';
 
 // Theme
@@ -25,6 +23,10 @@ import 'package:gaza_learning_pathways/features/course/course_content_page.dart'
 import 'package:gaza_learning_pathways/features/course/course_grades_page.dart';
 import 'package:gaza_learning_pathways/features/course/course_api_repository.dart';
 
+// Home & Quiz API repos
+import 'package:gaza_learning_pathways/features/home/home_api_repository.dart';
+import 'package:gaza_learning_pathways/features/lesson/quiz_api_repository.dart';
+
 // Lesson & Quiz screens + their args
 import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart';
 import 'package:gaza_learning_pathways/features/lesson/quiz_page.dart';
@@ -37,7 +39,7 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ✅ Hardcoded dev login
+  // ✅ Dev auto-login to make the app usable during development
   const devEmail = 'changed@example.com';
   const devPassword = '010203';
 
@@ -143,12 +145,12 @@ class _RootAppState extends State<_RootApp> {
     // ✅ Pick from --dart-define=API_BASE=..., else use proxy to dodge CORS
     const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:3000/api');
 
-    // Demo defaults
+    // Demo defaults (used only if someone navigates without args)
     const demoCourseId    = '1';
     const demoCourseTitle = 'الرياضيات';
     const demoGradeLabel  = 'الصف التاسع';
 
-    final repo = ApiCourseRepository(
+    final courseRepo = ApiCourseRepository(
       baseUrl: apiBase,
       getToken: _getFirebaseIdToken, // <-- add Bearer token
     );
@@ -176,26 +178,26 @@ class _RootAppState extends State<_RootApp> {
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
+        fontFamily: 'Cairo',
       ),
 
       // Start here
-      initialRoute: AppRoutes.home,
+      initialRoute: AppRoutes.landing,
 
       routes: {
         // ---------- Top-level ----------
-     AppRoutes.home: (_) => HomePage(
-  repository: ApiHomeRepository(
-    baseUrl: apiBase,
-    getToken: _getFirebaseIdToken,
-  ),
-),
-
+        AppRoutes.home: (_) => HomePage(
+              repository: ApiHomeRepository(
+                baseUrl: apiBase,
+                getToken: _getFirebaseIdToken,
+              ),
+            ),
         AppRoutes.login:  (_) => const LoginPage(),
         AppRoutes.signup: (_) => const SignupPage(),
         AppRoutes.landing: (_) => LandingPage(
-          isArabic: _locale.languageCode == 'ar',
-          onToggleLanguage: _toggleLocale,
-        ),
+              isArabic: _locale.languageCode == 'ar',
+              onToggleLanguage: _toggleLocale,
+            ),
         AppRoutes.catalog: (_) => const CatalogPage(),
 
         // ---------- Course ----------
@@ -205,7 +207,7 @@ class _RootAppState extends State<_RootApp> {
             courseId:    args?.courseId    ?? demoCourseId,
             courseTitle: args?.courseTitle ?? demoCourseTitle,
             gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
-            repository:  repo,
+            repository:  courseRepo,
           );
         },
 
@@ -218,19 +220,18 @@ class _RootAppState extends State<_RootApp> {
           );
         },
 
-       AppRoutes.grades: (context) {
-  final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
-  return CourseGradesPage(
-    courseId:    args?.courseId    ?? demoCourseId,
-    courseTitle: args?.courseTitle ?? demoCourseTitle,
-    gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
-    repository:  ApiGradesRepository(
-      baseUrl: apiBase,
-      getToken: _getFirebaseIdToken, // the same token provider you used for courses
-    ),
-  );
-},
-
+        AppRoutes.grades: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as CourseGradesArgs?;
+          return CourseGradesPage(
+            courseId:    args?.courseId    ?? demoCourseId,
+            courseTitle: args?.courseTitle ?? demoCourseTitle,
+            gradeLabel:  args?.gradeLabel  ?? demoGradeLabel,
+            repository:  ApiGradesRepository(
+              baseUrl: apiBase,
+              getToken: _getFirebaseIdToken, // same token provider
+            ),
+          );
+        },
 
         // ---------- Lesson ----------
         AppRoutes.lesson: (context) {
@@ -244,18 +245,17 @@ class _RootAppState extends State<_RootApp> {
 
         // ---------- Quiz ----------
         AppRoutes.quiz: (context) {
-  final args = ModalRoute.of(context)?.settings.arguments as QuizPageArgs?;
-  return QuizPage(
-    courseId:  args?.courseId  ?? demoCourseId,
-    quizId:    args?.quizId    ?? 'demo-quiz',
-    quizTitle: args?.quizTitle ?? 'اختبار قصير',
-    repository: ApiQuizRepository(
-      baseUrl: apiBase,
-      getToken: _getFirebaseIdToken,
-    ),
-  );
-},
-
+          final args = ModalRoute.of(context)?.settings.arguments as QuizPageArgs?;
+          return QuizPage(
+            courseId:  args?.courseId  ?? demoCourseId,
+            quizId:    args?.quizId    ?? 'demo-quiz',
+            quizTitle: args?.quizTitle ?? 'اختبار قصير',
+            repository: ApiQuizRepository(
+              baseUrl: apiBase,
+              getToken: _getFirebaseIdToken,
+            ),
+          );
+        },
       },
 
       onUnknownRoute: (settings) => MaterialPageRoute(

@@ -105,64 +105,245 @@ abstract class QuizRepository {
    ======================= */
 
 class FakeQuizRepository implements QuizRepository {
-  late final Quiz _demo = Quiz(
-    id: 'demo-quiz-1',
-    title: 'اختبار قصير: الأعداد الحقيقية',
-    duration: const Duration(minutes: 10),
-    questions: const [
-      QuizQuestion(
-        id: 'q1',
-        text: 'العدد −3 هو عدد…',
-        type: QuestionType.single,
-        points: 1,
-        choices: [
-          Choice(id: 'q1a1', text: 'صحيح', isCorrect: false),
-          Choice(id: 'q1a2', text: 'كسري', isCorrect: false),
-          Choice(id: 'q1a3', text: 'صحيح سالب', isCorrect: true),
-          Choice(id: 'q1a4', text: 'عشري موجب', isCorrect: false),
+  // Key format: "<courseId>:<quizId>"
+  final Map<String, Quiz> _quizzes = {
+    // ===== Math G6 =====
+    'math-g6:quiz-1': Quiz(
+      id: 'quiz-1',
+      title: 'اختبار قصير: العمليات على الأعداد (سادس)',
+      duration: const Duration(minutes: 10),
+      questions: const [
+        QuizQuestion(
+          id: 'm6q1',
+          text: 'ناتج 458 + 327 = ؟',
+          type: QuestionType.single,
+          points: 1,
+          choices: [
+            Choice(id: 'm6q1a', text: '675', isCorrect: false),
+            Choice(id: 'm6q1b', text: '785', isCorrect: true),
+            Choice(id: 'm6q1c', text: '815', isCorrect: false),
+            Choice(id: 'm6q1d', text: '705', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 'm6q2',
+          text: 'اختر الأعداد الصحيحة مما يلي:',
+          type: QuestionType.multiple,
+          points: 2,
+          choices: [
+            Choice(id: 'm6q2a', text: '0', isCorrect: true),
+            Choice(id: 'm6q2b', text: '3.5', isCorrect: false),
+            Choice(id: 'm6q2c', text: '-4', isCorrect: true),
+            Choice(id: 'm6q2d', text: '7/2', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 'm6q3',
+          text: 'المحيط يقاس بوحدات مربعة.',
+          type: QuestionType.trueFalse,
+          points: 1,
+          choices: [
+            Choice(id: 'm6q3t', text: 'صحيح', isCorrect: false),
+            Choice(id: 'm6q3f', text: 'خطأ', isCorrect: true),
+          ],
+        ),
+      ],
+    ),
+
+    // ===== Science G6 =====
+    'science-g6:quiz-1': Quiz(
+      id: 'quiz-1',
+      title: 'اختبار قصير: الماء والغذاء (سادس)',
+      duration: const Duration(minutes: 8),
+      questions: const [
+        QuizQuestion(
+          id: 's6q1',
+          text: 'أي العمليات تتضمن تحول الماء من سائل إلى غاز؟',
+          type: QuestionType.single,
+          points: 1,
+          choices: [
+            Choice(id: 's6q1a', text: 'التكاثف', isCorrect: false),
+            Choice(id: 's6q1b', text: 'التبخر', isCorrect: true),
+            Choice(id: 's6q1c', text: 'الهطول', isCorrect: false),
+            Choice(id: 's6q1d', text: 'الترسب', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 's6q2',
+          text: 'اختر جميع الكائنات المنتجة في السلسلة الغذائية:',
+          type: QuestionType.multiple,
+          points: 2,
+          choices: [
+            Choice(id: 's6q2a', text: 'نباتات خضراء', isCorrect: true),
+            Choice(id: 's6q2b', text: 'ذئب', isCorrect: false),
+            Choice(id: 's6q2c', text: 'طحالب', isCorrect: true),
+            Choice(id: 's6q2d', text: 'فطر', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 's6q3',
+          text: 'التغير الفيزيائي لا يُنتج مادة جديدة.',
+          type: QuestionType.trueFalse,
+          points: 1,
+          choices: [
+            Choice(id: 's6q3t', text: 'صحيح', isCorrect: true),
+            Choice(id: 's6q3f', text: 'خطأ', isCorrect: false),
+          ],
+        ),
+      ],
+    ),
+
+    // ===== Arabic G6 =====
+    'arabic-g6:quiz-1': Quiz(
+      id: 'quiz-1',
+      title: 'اختبار قصير: نحو وترقيم (سادس)',
+      duration: const Duration(minutes: 7),
+      questions: const [
+        QuizQuestion(
+          id: 'a6q1',
+          text: 'حدِّد المبتدأ في الجملة: "الطالبُ مجتهدٌ".',
+          type: QuestionType.single,
+          points: 1,
+          choices: [
+            Choice(id: 'a6q1a', text: 'الطالبُ', isCorrect: true),
+            Choice(id: 'a6q1b', text: 'مجتهدٌ', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 'a6q2',
+          text: 'اختر مواضع صحيحة لعلامة الترقيم:',
+          type: QuestionType.multiple,
+          points: 2,
+          choices: [
+            Choice(id: 'a6q2a', text: 'بعد جملة تامة: نقطة .', isCorrect: true),
+            Choice(id: 'a6q2b', text: 'بين مفردات متسلسلة: فاصلة ،', isCorrect: true),
+            Choice(id: 'a6q2c', text: 'في نهاية سؤال: علامة تعجب !', isCorrect: false),
+            Choice(id: 'a6q2d', text: 'في نهاية تعجب: ؟', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 'a6q3',
+          text: 'الهمزة في "مساء" همزة متطرفة.',
+          type: QuestionType.trueFalse,
+          points: 1,
+          choices: [
+            Choice(id: 'a6q3t', text: 'صحيح', isCorrect: true),
+            Choice(id: 'a6q3f', text: 'خطأ', isCorrect: false),
+          ],
+        ),
+      ],
+    ),
+
+    // ===== Digital Skills =====
+    'digital-skills:quiz-1': Quiz(
+      id: 'quiz-1',
+      title: 'اختبار قصير: مفاهيم رقمية',
+      duration: const Duration(minutes: 6),
+      questions: const [
+        QuizQuestion(
+          id: 'd1',
+          text: 'كلمة المرور القوية يجب أن:',
+          type: QuestionType.multiple,
+          points: 2,
+          choices: [
+            Choice(id: 'd1a', text: 'تحتوي حروفًا وأرقامًا ورموزًا', isCorrect: true),
+            Choice(id: 'd1b', text: 'تُستخدم في كل المواقع نفسها', isCorrect: false),
+            Choice(id: 'd1c', text: 'تكون طويلة نسبيًا', isCorrect: true),
+            Choice(id: 'd1d', text: 'تُشارك مع الأصدقاء', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 'd2',
+          text: 'Scratch هي بيئة لبرمجة القصص والألعاب.',
+          type: QuestionType.trueFalse,
+          points: 1,
+          choices: [
+            Choice(id: 'd2t', text: 'صحيح', isCorrect: true),
+            Choice(id: 'd2f', text: 'خطأ', isCorrect: false),
+          ],
+        ),
+      ],
+    ),
+
+    // ===== Grade 9 Math (demo) =====
+    'demo-math-g9:quiz-1': Quiz(
+      id: 'quiz-1',
+      title: 'اختبار قصير: خطيات (تاسع)',
+      duration: const Duration(minutes: 10),
+      questions: const [
+        QuizQuestion(
+          id: 'm9q1',
+          text: 'ميل المستقيم المار بالنقطتين (1,2) و (3,6) يساوي:',
+          type: QuestionType.single,
+          points: 1,
+          choices: [
+            Choice(id: 'm9q1a', text: '2', isCorrect: true),
+            Choice(id: 'm9q1b', text: '3', isCorrect: false),
+            Choice(id: 'm9q1c', text: '4', isCorrect: false),
+            Choice(id: 'm9q1d', text: '1', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 'm9q2',
+          text: 'اختر معادلات خطية مما يلي:',
+          type: QuestionType.multiple,
+          points: 2,
+          choices: [
+            Choice(id: 'm9q2a', text: 'y = 2x + 1', isCorrect: true),
+            Choice(id: 'm9q2b', text: 'x² + y = 1', isCorrect: false),
+            Choice(id: 'm9q2c', text: '3x - y = 7', isCorrect: true),
+            Choice(id: 'm9q2d', text: 'xy = 5', isCorrect: false),
+          ],
+        ),
+        QuizQuestion(
+          id: 'm9q3',
+          text: 'المعادلة y = 3x + 2 تمثل خطًا ميله 2.',
+          type: QuestionType.trueFalse,
+          points: 1,
+          choices: [
+            Choice(id: 'm9q3t', text: 'صحيح', isCorrect: false),
+            Choice(id: 'm9q3f', text: 'خطأ', isCorrect: true),
+          ],
+        ),
+      ],
+    ),
+  };
+
+  Quiz get _defaultDemo => const Quiz(
+        id: 'demo-quiz-1',
+        title: 'اختبار قصير: الأعداد الحقيقية',
+        duration: Duration(minutes: 10),
+        questions: [
+          QuizQuestion(
+            id: 'q1',
+            text: 'العدد −3 هو عدد…',
+            type: QuestionType.single,
+            points: 1,
+            choices: [
+              Choice(id: 'q1a1', text: 'صحيح', isCorrect: false),
+              Choice(id: 'q1a2', text: 'كسري', isCorrect: false),
+              Choice(id: 'q1a3', text: 'صحيح سالب', isCorrect: true),
+              Choice(id: 'q1a4', text: 'عشري موجب', isCorrect: false),
+            ],
+          ),
+          QuizQuestion(
+            id: 'q3',
+            text: 'القول: "كل عدد صحيح هو عدد كسري" صحيح أم خطأ؟',
+            type: QuestionType.trueFalse,
+            points: 1,
+            choices: [
+              Choice(id: 'q3t', text: 'صحيح', isCorrect: true),
+              Choice(id: 'q3f', text: 'خطأ', isCorrect: false),
+            ],
+          ),
         ],
-      ),
-      QuizQuestion(
-        id: 'q2',
-        text: 'اختر جميع الأعداد الصحيحة مما يلي:',
-        type: QuestionType.multiple,
-        points: 2,
-        choices: [
-          Choice(id: 'q2a1', text: '5', isCorrect: true),
-          Choice(id: 'q2a2', text: '3.5', isCorrect: false),
-          Choice(id: 'q2a3', text: '0', isCorrect: true),
-          Choice(id: 'q2a4', text: '-2', isCorrect: true),
-        ],
-      ),
-      QuizQuestion(
-        id: 'q3',
-        text: 'القول: "كل عدد صحيح هو عدد كسري" صحيح أم خطأ؟',
-        type: QuestionType.trueFalse,
-        points: 1,
-        choices: [
-          Choice(id: 'q3t', text: 'صحيح', isCorrect: true),
-          Choice(id: 'q3f', text: 'خطأ', isCorrect: false),
-        ],
-      ),
-      QuizQuestion(
-        id: 'q4',
-        text: 'أي مما يلي عدد عشري منتهٍ؟',
-        type: QuestionType.single,
-        points: 1,
-        choices: [
-          Choice(id: 'q4a1', text: '1/3', isCorrect: false),
-          Choice(id: 'q4a2', text: '2/5', isCorrect: true), // 0.4
-          Choice(id: 'q4a3', text: '1/6', isCorrect: false),
-          Choice(id: 'q4a4', text: '10/3', isCorrect: false),
-        ],
-      ),
-    ],
-  );
+      );
 
   @override
   Future<Quiz> fetch(String courseId, String quizId) async {
-    await Future<void>.delayed(const Duration(milliseconds: 320));
-    return _demo;
+    await Future<void>.delayed(const Duration(milliseconds: 280));
+    final key = '${courseId.trim()}:$quizId';
+    return _quizzes[key] ?? _defaultDemo;
   }
 
   @override
@@ -173,17 +354,16 @@ class FakeQuizRepository implements QuizRepository {
   ) async {
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
-    final q = _demo;
+    final quiz = await fetch(courseId, quizId);
     double score = 0, max = 0;
     int correctCount = 0;
 
-    for (final qq in q.questions) {
+    for (final qq in quiz.questions) {
       max += qq.points;
       final selected = answers[qq.id] ?? const <String>[];
       final correctIds = qq.choices.where((c) => c.isCorrect).map((c) => c.id).toSet();
       final chosen = selected.toSet();
 
-      // grading per type
       final isCorrect = chosen.length == correctIds.length && chosen.containsAll(correctIds);
       if (isCorrect) {
         score += qq.points;
@@ -195,10 +375,11 @@ class FakeQuizRepository implements QuizRepository {
       score: score,
       max: max,
       correctCount: correctCount,
-      totalCount: q.questions.length,
+      totalCount: quiz.questions.length,
     );
   }
 }
+
 
 /* =======================
    Page

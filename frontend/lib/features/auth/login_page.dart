@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/palette.dart';
+import '../../main.dart' show AppRoutes;
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -10,15 +14,145 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _userCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
+  final _userCtrl = TextEditingController(text: 'changed@example.com'); // demo default
+  final _passCtrl = TextEditingController(text: '010203');              // demo default
+  final _emailNode = FocusNode();
+  final _passNode = FocusNode();
+
   bool _obscure = true;
+  bool _loading = false;
+
+  // Configurable via --dart-define (falls back to the URL you provided)
+  static const String _defaultLoginUrl =
+      'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyDSIsEsDEY74pg-FUX5d1ngqhITJKAX1bc';
+  static const String _loginUrl =
+      String.fromEnvironment('FIREBASE_LOGIN_URL', defaultValue: _defaultLoginUrl);
 
   @override
   void dispose() {
     _userCtrl.dispose();
     _passCtrl.dispose();
+    _emailNode.dispose();
+    _passNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _userCtrl.text.trim();
+    final pass = _passCtrl.text;
+
+    if (email.isEmpty || pass.isEmpty) {
+      _toast('الرجاء إدخال البريد الإلكتروني وكلمة المرور');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      // 1) Call Firebase Auth REST API (as requested)
+      final r = await http
+          .post(
+            Uri.parse(_loginUrl),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'password': pass,
+              'returnSecureToken': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (r.statusCode != 200) {
+        // Try to decode Firebase REST error
+        String message = 'تعذر تسجيل الدخول. تأكد من صحة البيانات.';
+        try {
+          final j = jsonDecode(r.body);
+          final code = j['error']?['message']?.toString() ?? '';
+          message = _mapFirebaseRestError(code);
+        } catch (_) {}
+        _toast(message);
+        return;
+      }
+
+      // 2) Establish the Firebase session for the app (plugin),
+      //    so getIdToken() keeps working everywhere else.
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: pass,
+      );
+
+      // Optional: set a display name if it's empty (nice for header)
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && (user.displayName == null || user.displayName!.trim().isEmpty)) {
+        final nameGuess = email.split('@').first;
+        await user.updateDisplayName(nameGuess);
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (r) => false);
+    } on FirebaseAuthException catch (e) {
+      _toast(_mapFirebasePluginError(e));
+    } catch (_) {
+      _toast('حدث خطأ غير متوقع. حاول مجددًا.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _handleForgotPassword() async {
+    final email = _userCtrl.text.trim();
+    if (email.isEmpty) {
+      _toast('أدخل بريدك الإلكتروني أولاً.');
+      _emailNode.requestFocus();
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _toast('تم إرسال رابط استعادة كلمة المرور إلى بريدك.');
+    } on FirebaseAuthException catch (e) {
+      _toast(_mapFirebasePluginError(e));
+    } catch (_) {
+      _toast('تعذر إرسال رابط الاستعادة حالياً.');
+    }
+  }
+
+  String _mapFirebaseRestError(String code) {
+    switch (code) {
+      case 'EMAIL_NOT_FOUND':
+        return 'البريد الإلكتروني غير مسجل.';
+      case 'INVALID_PASSWORD':
+        return 'كلمة المرور غير صحيحة.';
+      case 'USER_DISABLED':
+        return 'تم تعطيل هذا الحساب.';
+      case 'INVALID_EMAIL':
+        return 'صيغة البريد الإلكتروني غير صحيحة.';
+      case 'TOO_MANY_ATTEMPTS_TRY_LATER':
+        return 'محاولات عديدة فاشلة. حاول لاحقاً.';
+      default:
+        return 'تعذر تسجيل الدخول. ($code)';
+    }
+  }
+
+  String _mapFirebasePluginError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'صيغة البريد الإلكتروني غير صحيحة.';
+      case 'user-disabled':
+        return 'تم تعطيل هذا الحساب.';
+      case 'user-not-found':
+        return 'البريد الإلكتروني غير مسجل.';
+      case 'wrong-password':
+        return 'كلمة المرور غير صحيحة.';
+      case 'too-many-requests':
+        return 'محاولات عديدة فاشلة. حاول لاحقاً.';
+      case 'network-request-failed':
+        return 'تحقق من اتصال الإنترنت.';
+      default:
+        return 'خطأ: ${e.message ?? e.code}';
+    }
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -60,7 +194,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
+                                color: Colors.black.withOpacity(0.08),
                                 blurRadius: 16,
                                 offset: const Offset(0, 6),
                               ),
@@ -89,12 +223,17 @@ class _LoginPageState extends State<LoginPage> {
                                   const SizedBox(height: 20),
 
                                   // Label ABOVE fields
-                                  const _FieldLabel('اسم المستخدم'),
+                                  const _FieldLabel('البريد الإلكتروني'),
                                   Center(
                                     child: SizedBox(
                                       width: fieldWidth,
                                       height: 66,
-                                      child: _buildTextField(_userCtrl, obscure: false),
+                                      child: _buildTextField(
+                                        _userCtrl,
+                                        obscure: false,
+                                        node: _emailNode,
+                                        keyboardType: TextInputType.emailAddress,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 14),
@@ -108,6 +247,7 @@ class _LoginPageState extends State<LoginPage> {
                                         _passCtrl,
                                         obscure: _obscure,
                                         withToggle: true,
+                                        node: _passNode,
                                       ),
                                     ),
                                   ),
@@ -119,7 +259,7 @@ class _LoginPageState extends State<LoginPage> {
                                     child: _InlineAction(
                                       blackText: 'هل نسيت كلمة المرور؟',
                                       blueAction: 'اضغط هنا',
-                                      onTap: () => _toast(context, 'استعادة كلمة المرور قريباً'),
+                                      onTap: _loading ? null : _handleForgotPassword,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
@@ -128,13 +268,15 @@ class _LoginPageState extends State<LoginPage> {
                                     child: _InlineAction(
                                       blackText: 'هل هذه المرة الاولى لك؟',
                                       blueAction: 'سارع بإنشاء حسابك',
-                                      onTap: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => const SignupPage(),
-                                          ),
-                                        );
-                                      },
+                                      onTap: _loading
+                                          ? null
+                                          : () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => const SignupPage(),
+                                                ),
+                                              );
+                                            },
                                     ),
                                   ),
 
@@ -151,8 +293,7 @@ class _LoginPageState extends State<LoginPage> {
                                         height: 64,
                                         child: FilledButton(
                                           style: FilledButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xBA4A90E2), // 73%
+                                            backgroundColor: const Color(0xBA4A90E2), // 73%
                                             foregroundColor: Colors.black, // black text
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(22),
@@ -162,8 +303,24 @@ class _LoginPageState extends State<LoginPage> {
                                               fontWeight: FontWeight.w800,
                                             ),
                                           ),
-                                          onPressed: () => _toast(context, 'تسجيل الدخول ...'),
-                                          child: const Text('تسجيل الدخول'),
+                                          onPressed: _loading ? null : _handleLogin,
+                                          child: _loading
+                                              ? Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: const [
+                                                    SizedBox(
+                                                      width: 20,
+                                                      height: 20,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 12),
+                                                    Text('جاري تسجيل الدخول...'),
+                                                  ],
+                                                )
+                                              : const Text('تسجيل الدخول'),
                                         ),
                                       ),
                                     ),
@@ -189,12 +346,21 @@ class _LoginPageState extends State<LoginPage> {
     TextEditingController ctrl, {
     required bool obscure,
     bool withToggle = false,
+    FocusNode? node,
+    TextInputType? keyboardType,
   }) {
     return TextFormField(
       controller: ctrl,
+      focusNode: node,
       obscureText: obscure,
+      keyboardType: keyboardType,
       textDirection: TextDirection.rtl,
       textAlign: TextAlign.right,
+      onFieldSubmitted: (_) {
+        if (node == _emailNode) {
+          _passNode.requestFocus();
+        }
+      },
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
@@ -211,10 +377,6 @@ class _LoginPageState extends State<LoginPage> {
             : null,
       ),
     );
-  }
-
-  void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
 
@@ -279,7 +441,7 @@ class _FieldLabel extends StatelessWidget {
 class _InlineAction extends StatelessWidget {
   final String blackText;
   final String blueAction;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _InlineAction({
     required this.blackText,
