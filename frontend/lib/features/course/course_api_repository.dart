@@ -111,12 +111,231 @@ class ApiCourseRepository implements CourseRepository {
   }
 
   /* ===========================================================
+   * 🔹 NEW: Mock lessons per course (Palestinian curriculum flavoured)
+   *    Returned when the backend has no lessons yet.
+   *    Keys used by the rest of the code: id, title, type, start, end, description
+   *    For quiz rows, we set type: "quiz" and id like "quiz-1".
+   * =========================================================== */
+  List<Map<String, dynamic>> _mockLessonsFor(String courseId) {
+    final id = (courseId.isEmpty ? '' : courseId).toLowerCase();
+
+    if (id.startsWith('math-g6') || id == 'math-g6') {
+      return [
+        {
+          'id': 'l1',
+          'title': 'الأعداد الكبيرة والقيمة المكانية',
+          'type': 'reading',
+          'description': 'مراجعة قراءة وكتابة الأعداد حتى الملايين.',
+          'start': '2025-09-01',
+          'end': '2025-09-07',
+        },
+        {
+          'id': 'l2',
+          'title': 'الجمع والطرح متعددة الخطوات',
+          'type': 'video',
+          'description': 'حل مسائل حياتية على الجمع والطرح باستخدام التقدير.',
+          'start': '2025-09-08',
+          'end': '2025-09-14',
+        },
+        {
+          'id': 'quiz-1',
+          'title': 'اختبار قصير: العمليات على الأعداد',
+          'type': 'quiz',
+          'description': '10 دقائق – أسئلة اختيار من متعدد وصح/خطأ.',
+          'start': '2025-09-15',
+          'end': '2025-09-15',
+        },
+        {
+          'id': 'l3',
+          'title': 'المحيط والمساحة للمستطيل والمربع',
+          'type': 'reading',
+          'description': 'تطبيقات على أشكال من مناهج فلسطين للصف السادس.',
+          'start': '2025-09-16',
+          'end': '2025-09-22',
+        },
+        {
+          'id': 'l4',
+          'title': 'القسمة المطوّلة',
+          'type': 'video',
+          'description': 'تقسيم أعداد كبيرة وخطوات التحقق.',
+          'start': '2025-09-23',
+          'end': '2025-09-29',
+        },
+      ];
+    }
+
+    if (id.startsWith('science-g6') || id == 'science-g6') {
+      return [
+        {
+          'id': 's1',
+          'title': 'دورة الماء في الطبيعة',
+          'type': 'video',
+          'description': 'تبخر، تكاثف، هطول – أمثلة من بيئة فلسطين.',
+          'start': '2025-09-01',
+          'end': '2025-09-07',
+        },
+        {
+          'id': 's2',
+          'title': 'السلاسل الغذائية',
+          'type': 'reading',
+          'description': 'المنتِجات والمستهلِكات والمحلِّلات.',
+          'start': '2025-09-08',
+          'end': '2025-09-14',
+        },
+        {
+          'id': 'quiz-1',
+          'title': 'اختبار قصير: الماء والغذاء',
+          'type': 'quiz',
+          'description': '5 أسئلة متنوعة.',
+          'start': '2025-09-15',
+          'end': '2025-09-15',
+        },
+        {
+          'id': 's3',
+          'title': 'التغيرات الفيزيائية والكيميائية',
+          'type': 'reading',
+          'description': 'تمييز التغيرات بالأمثلة.',
+          'start': '2025-09-16',
+          'end': '2025-09-22',
+        },
+      ];
+    }
+
+    if (id.startsWith('arabic-g6') || id == 'arabic-g6') {
+      return [
+        {
+          'id': 'a1',
+          'title': 'الجملة الاسمية والجملة الفعلية',
+          'type': 'reading',
+          'description': 'المبتدأ والخبر – الفعل والفاعل.',
+          'start': '2025-09-01',
+          'end': '2025-09-07',
+        },
+        {
+          'id': 'a2',
+          'title': 'علامات الترقيم',
+          'type': 'video',
+          'description': 'الفاصلة، النقطة، علامة الاستفهام والتعجب…',
+          'start': '2025-09-08',
+          'end': '2025-09-14',
+        },
+        {
+          'id': 'quiz-1',
+          'title': 'اختبار قصير: نحو وترقيم',
+          'type': 'quiz',
+          'description': 'تصحيح جُمل قصيرة.',
+          'start': '2025-09-15',
+          'end': '2025-09-15',
+        },
+        {
+          'id': 'a3',
+          'title': 'الهمزة المتطرفة والمتوسطة',
+          'type': 'reading',
+          'description': 'قواعد وأمثلة تدريبية.',
+          'start': '2025-09-16',
+          'end': '2025-09-22',
+        },
+      ];
+    }
+
+    if (id.contains('digital') || id == 'digital-skills') {
+      return [
+        {
+          'id': 'd1',
+          'title': 'السلامة الرقمية',
+          'type': 'reading',
+          'description': 'كلمات المرور، الخصوصية، والتنمر الإلكتروني.',
+          'start': '2025-09-01',
+          'end': '2025-09-07',
+        },
+        {
+          'id': 'd2',
+          'title': 'مقدمة في Scratch',
+          'type': 'video',
+          'description': 'برمجة قصص تفاعلية بسيطة.',
+          'start': '2025-09-08',
+          'end': '2025-09-14',
+        },
+        {
+          'id': 'quiz-1',
+          'title': 'اختبار قصير: مفاهيم رقمية',
+          'type': 'quiz',
+          'description': 'مفاهيم أساسية في الحوسبة.',
+          'start': '2025-09-15',
+          'end': '2025-09-15',
+        },
+        {
+          'id': 'd3',
+          'title': 'البحث الذكي على الإنترنت',
+          'type': 'reading',
+          'description': 'الكلمات المفتاحية ومصادر موثوقة.',
+          'start': '2025-09-16',
+          'end': '2025-09-22',
+        },
+      ];
+    }
+
+    // Grade 9 demo math (used elsewhere in your app)
+    if (id.startsWith('demo-math-g9') || id.startsWith('math-g9')) {
+      return [
+        {
+          'id': 'm9-1',
+          'title': 'المعادلات الخطية وحلّها',
+          'type': 'reading',
+          'description': 'طرق الحل والتحقق.',
+          'start': '2025-09-01',
+          'end': '2025-09-07',
+        },
+        {
+          'id': 'm9-2',
+          'title': 'الدوال والتمثيل البياني',
+          'type': 'video',
+          'description': 'ميل الخط والجزء المقطوع.',
+          'start': '2025-09-08',
+          'end': '2025-09-14',
+        },
+        {
+          'id': 'quiz-1',
+          'title': 'اختبار قصير: خطيات',
+          'type': 'quiz',
+          'description': 'أسئلة سريعة على الميل والمعادلات.',
+          'start': '2025-09-15',
+          'end': '2025-09-15',
+        },
+        {
+          'id': 'm9-3',
+          'title': 'الهندسة: تشابه المثلثات',
+          'type': 'reading',
+          'description': 'نظريات وزوايا.',
+          'start': '2025-09-16',
+          'end': '2025-09-22',
+        },
+      ];
+    }
+
+    // Generic fallback
+    return [
+      {
+        'id': 'g1',
+        'title': 'تعريف بالمقرر',
+        'type': 'reading',
+        'description': 'نظرة عامة على أهداف المساق ومتطلباته.',
+        'start': '2025-09-01',
+        'end': '2025-09-07',
+      },
+      {
+        'id': 'quiz-1',
+        'title': 'اختبار قصير تمهيدي',
+        'type': 'quiz',
+        'description': 'قياس أولي للمستوى.',
+        'start': '2025-09-08',
+        'end': '2025-09-08',
+      },
+    ];
+  }
+
+  /* ===========================================================
    * 1) Existing: fetch a single course (basics + lessons + progress)
-   *    Uses:
-   *    - GET /learning/courses/{id}/
-   *    - GET /learning/courses/{id}/lessons
-   *    - GET /progress/courses/{id}/
-   *    - GET /progress/courses/{id}/lessons/
    * =========================================================== */
   @override
   Future<CourseOverview> fetchCourse(String courseId) async {
@@ -143,7 +362,12 @@ class ApiCourseRepository implements CourseRepository {
     final gradeLabelMaybe  = _pickString(courseBasics, ['grade_label', 'grade', 'level', 'class_name']);
     final descriptionMaybe = _pickString(courseBasics, ['description', 'summary']);
 
-    final lessonsList = _extractList(courseLessons, ['results', 'items', '_list']);
+    // 🔹 Use backend lessons or fall back to our mocks per course
+    List<dynamic> lessonsList = _extractList(courseLessons, ['results', 'items', '_list']);
+    if (lessonsList.isEmpty) {
+      lessonsList = _mockLessonsFor(courseId);
+    }
+
     final syllabus = lessonsList
         .map(_asMap)
         .whereType<Map<String, dynamic>>()
@@ -228,8 +452,8 @@ class ApiCourseRepository implements CourseRepository {
   }
 
   /* ===========================================================
-   * 3) NEW: GET /learning/courses/{id}/lessons → raw list passthrough
-   *    Useful for CourseContentPage if you later wire it to API.
+   * 3) GET /learning/courses/{id}/lessons → raw list passthrough
+   *    🔹 Falls back to mock lessons if the API returns empty.
    * =========================================================== */
   Future<List<Map<String, dynamic>>> listCourseLessonsRaw(String courseId) async {
     final headers = await _headers();
@@ -238,7 +462,10 @@ class ApiCourseRepository implements CourseRepository {
         .timeout(const Duration(seconds: 12));
 
     final json = _asJson(r);
-    final list = _extractList(json, ['results', 'items', '_list']);
+    List<dynamic> list = _extractList(json, ['results', 'items', '_list']);
+    if (list.isEmpty) {
+      return _mockLessonsFor(courseId);
+    }
     return list.map(_asMap).whereType<Map<String, dynamic>>().toList();
   }
 }

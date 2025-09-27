@@ -8,15 +8,36 @@ import '../../core/theme/palette.dart';
 import '../../main.dart' show AppRoutes, CourseContentArgs, CourseGradesArgs;
 import 'package:gaza_learning_pathways/features/lesson/lesson_page.dart' show LessonPageArgs;
 
+/* ======================= API BASE ======================= */
+const String _apiBase = String.fromEnvironment(
+  'API_BASE',
+  defaultValue: 'http://localhost:3000/api',
+);
+
+/* ======================= Grade fallback (always available) ======================= */
+const Map<int, String> _gradeFallback = {
+  1:  'الصف الاول',
+  2:  'الصف الثاني',
+  3:  'الصف الثالث',
+  4:  'الصف الرابع',
+  5:  'الصف الخامس',
+  6:  'الصف السادس',
+  7:  'الصف السابع',
+  8:  'الصف الثامن',
+  9:  'الصف التاسع',
+  10: 'الصف العاشر',
+  11: 'الصف الحادي عشر',
+  12: 'الصف الثاني عشر',
+};
+
 /* ======================= Data Layer (swap this with your backend) ======================= */
 
-/// Plain models you can also move to /models later.
 class Course {
-  final String id;            // stable id from backend
-  final String title;         // e.g. 'الرياضيات - الصف 6'
-  final IconData icon;        // you can replace with an icon code from backend
-  final double progress;      // 0..1
-  final bool locked;          // access control from backend
+  final String id;
+  final String title;   // e.g. 'الرياضيات - الصف 6'
+  final IconData icon;
+  final double progress; // 0..1
+  final bool locked;
   const Course({
     required this.id,
     required this.title,
@@ -61,16 +82,13 @@ class HomeData {
   });
 }
 
-/// Repository contract — implement this with your backend.
 abstract class HomeRepository {
   Future<HomeData> fetchHome();
 }
 
-/// Working in-memory fake so the screen is fully functional now.
 class FakeHomeRepository implements HomeRepository {
   @override
   Future<HomeData> fetchHome() async {
-    // Simulate network delay
     await Future<void>.delayed(const Duration(milliseconds: 400));
 
     final courses = <Course>[
@@ -113,8 +131,8 @@ class FakeHomeRepository implements HomeRepository {
     ];
 
     return HomeData(
-      studentName: 'اسم الطالب',
-      studentGrade: 'الصف السادس',
+      studentName: '',
+      studentGrade: '',
       overallPercent: 0.54,
       completedLessons: 27,
       totalLessons: 50,
@@ -128,10 +146,7 @@ class FakeHomeRepository implements HomeRepository {
 /* ======================= Home Screen ======================= */
 
 class HomePage extends StatefulWidget {
-  /// Optional injection for testing / swapping backends
   final HomeRepository? repository;
-
-  /// You can pass these from login/signup (or provide via repository)
   final String? studentName;
   final String? studentGrade;
 
@@ -150,9 +165,13 @@ class _HomePageState extends State<HomePage> {
   late final HomeRepository _repo = widget.repository ?? FakeHomeRepository();
   late Future<HomeData> _future;
 
-  // ✅ Fallbacks pulled from Firebase user (if repo/props don’t provide them)
-  String? _fbName;
-  String? _fbGrade; // read from custom claim "grade" if present
+  // ✅ Display values (Firebase first, then overridden by backend profile)
+  String? _nameFromAuth;
+  String? _gradeFromAuthOrProfile;
+
+  // ✅ Grade catalog (id -> Arabic name) from GET /learning/grades/
+  Map<int, String> _gradeCatalog = {};
+  int? _pendingGradeIdForUi; // if we saw a numeric id before catalog arrived, update later
 
   // UI state for the resume button
   bool _resuming = false;
@@ -161,40 +180,155 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _future = _repo.fetchHome();
+    _loadGradeCatalog();
     _loadFirebaseBasics();
+    _loadBackendProfile();
   }
 
+  /* ---------------- Grade catalog: GET /learning/grades/ ---------------- */
+  Future<void> _loadGradeCatalog() async {
+    try {
+      final url = Uri.parse('$_apiBase/learning/grades/');
+      final r = await http.get(url, headers: await _authHeaders()).timeout(const Duration(seconds: 10));
+      final body = r.body.isEmpty ? [] : jsonDecode(r.body);
+      if (body is List) {
+        final map = <int, String>{};
+        for (final it in body) {
+          if (it is Map) {
+            final idRaw = it['id'];
+            final name = (it['name'] ?? it['label'] ?? '').toString().trim();
+            final int? id = switch (idRaw) {
+              int v => v,
+              num v => v.toInt(),
+              String s => int.tryParse(s),
+              _ => null,
+            };
+            if (id != null && name.isNotEmpty) map[id] = name;
+          }
+        }
+        if (mounted) {
+          setState(() => _gradeCatalog = map);
+        }
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      // Always ensure we have *some* catalog (fallback) to avoid empty label
+      if (_gradeCatalog.isEmpty && mounted) {
+        setState(() => _gradeCatalog = Map<int, String>.from(_gradeFallback));
+      }
+      // If we were waiting on a numeric grade id → update UI now.
+      if (_pendingGradeIdForUi != null && mounted) {
+        final id = _pendingGradeIdForUi!;
+        final label = _gradeCatalog[id] ?? _gradeFallback[id] ?? 'الصف $id';
+        setState(() {
+          _gradeFromAuthOrProfile = label;
+          _pendingGradeIdForUi = null;
+        });
+      }
+    }
+  }
+
+  /* ---------------- Firebase basics (displayName & claim 'grade' / 'grade_id') ---------------- */
   Future<void> _loadFirebaseBasics() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Prefer displayName; else email local-part; else UID
       final name = (user.displayName?.trim().isNotEmpty ?? false)
           ? user.displayName!.trim()
           : (user.email?.split('@').first ?? user.uid);
 
-      // Try to read a custom claim named 'grade'
-      String? grade;
+      String? gradeLabel;
       try {
         final token = await user.getIdTokenResult(true);
-        final g = token.claims?['grade'];
-        if (g != null && g.toString().trim().isNotEmpty) {
-          grade = g.toString().trim(); // e.g., "الصف التاسع" or "9"
-        }
-      } catch (_) {
-        // ignore claim errors – we’ll just fall back
-      }
+        final claims = token.claims ?? {};
+        final g = claims['grade'] ?? claims['grade_id'] ?? claims['gradeId'];
+        gradeLabel = _normalizeGradeUsingCatalog(g);
+      } catch (_) {/* ignore */}
 
-      if (mounted) {
-        setState(() {
-          _fbName = name;
-          _fbGrade = grade;
-        });
-      }
-    } catch (_) {
-      // ignore – UI will use other fallbacks
+      if (!mounted) return;
+      setState(() {
+        _nameFromAuth = name;
+        if ((gradeLabel ?? '').trim().isNotEmpty) {
+          _gradeFromAuthOrProfile = gradeLabel!.trim();
+        }
+      });
+    } catch (_) {/* ignore */}
+  }
+
+  /* ---------------- Backend profile overrides (GET /users/profile/) ---------------- */
+  Future<Map<String, String>> _authHeaders() async {
+    final h = <String, String>{'Accept': 'application/json'};
+    final tk = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    if (tk != null && tk.isNotEmpty) h['Authorization'] = 'Bearer $tk';
+    return h;
+  }
+
+  Future<void> _loadBackendProfile() async {
+    try {
+      final url = Uri.parse('${_apiBase.replaceAll(RegExp(r"/$"), "")}/users/profile/');
+      final r = await http.get(url, headers: await _authHeaders()).timeout(const Duration(seconds: 10));
+      if (r.statusCode < 200 || r.statusCode >= 300) return;
+
+      final body = r.body.isEmpty ? {} : jsonDecode(r.body);
+      if (body is! Map) return;
+
+      final username = (body['username'] ?? body['name'] ?? body['full_name'])?.toString();
+
+      // Example payload has only grade_id
+      final gradeLabelFromApi = body['grade_label']?.toString();
+      final gradeRaw          = body['grade_id'] ?? body['grade'] ?? body['grade_name'];
+
+      final resolvedGrade = (gradeLabelFromApi != null && gradeLabelFromApi.trim().isNotEmpty)
+          ? gradeLabelFromApi.trim()
+          : _normalizeGradeUsingCatalog(gradeRaw);
+
+      if (!mounted) return;
+      setState(() {
+        if (username != null && username.trim().isNotEmpty) {
+          _nameFromAuth = username.trim();
+        }
+        if ((resolvedGrade ?? '').trim().isNotEmpty) {
+          _gradeFromAuthOrProfile = resolvedGrade!.trim();
+        }
+      });
+    } catch (_) {/* ignore */}
+  }
+
+  /* ---------------- Helpers ---------------- */
+
+  /// Normalize grade using catalog if possible.
+  /// Accepts: int, "2", "الصف الثاني", etc.
+  String? _normalizeGradeUsingCatalog(dynamic v) {
+    if (v == null) return null;
+
+    final s = v.toString().trim();
+    if (s.isEmpty) return null;
+    if (s.contains('الصف')) return s; // already a label
+
+    // Numeric? map via catalog or fallback map or "الصف X"
+    final int? id = switch (v) {
+      int x => x,
+      num x => x.toInt(),
+      String x => int.tryParse(x),
+      _ => null,
+    };
+    if (id != null) {
+      final fromCatalog = _gradeCatalog[id] ?? _gradeFallback[id];
+      if (fromCatalog != null && fromCatalog.isNotEmpty) return fromCatalog;
+      _pendingGradeIdForUi = id; // update later when catalog arrives
+      return 'الصف $id';
     }
+
+    return s;
+  }
+
+  String _firstNonEmpty(List<String?> items, String fallback) {
+    for (final s in items) {
+      if (s != null && s.trim().isNotEmpty) return s.trim();
+    }
+    return fallback;
   }
 
   Future<void> _refresh() async {
@@ -202,16 +336,11 @@ class _HomePageState extends State<HomePage> {
       _future = _repo.fetchHome();
     });
     await _future;
-    // Also try refreshing token/claims in case grade changed
     await _loadFirebaseBasics();
-  }
-
-  // ✅ Helper to pick the first non-empty string
-  String _firstNonEmpty(List<String?> items, String fallback) {
-    for (final s in items) {
-      if (s != null && s.trim().isNotEmpty) return s.trim();
+    await _loadBackendProfile();
+    if (_gradeCatalog.isEmpty) {
+      await _loadGradeCatalog();
     }
-    return fallback;
   }
 
   // ---------- tiny JSON helpers for the "resume last lesson" call ----------
@@ -242,13 +371,6 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
-  Future<Map<String, String>> _authHeaders() async {
-    final h = <String, String>{'Accept': 'application/json'};
-    final tk = await FirebaseAuth.instance.currentUser?.getIdToken(true);
-    if (tk != null && tk.isNotEmpty) h['Authorization'] = 'Bearer $tk';
-    return h;
-  }
-
   // ---------- actual resume logic ----------
   Future<void> _resumeLastLesson({
     required String defaultGrade,
@@ -256,10 +378,9 @@ class _HomePageState extends State<HomePage> {
   }) async {
     if (_resuming) return;
     setState(() => _resuming = true);
-    const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:3000/api');
 
     try {
-      final url = Uri.parse('$apiBase/progress/last-activity/?limit=1');
+      final url = Uri.parse('$_apiBase/progress/last-activity/?limit=1');
       final r = await http.get(url, headers: await _authHeaders()).timeout(const Duration(seconds: 12));
       final j = _asJson(r);
       final list = _listIn(j);
@@ -272,7 +393,6 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // Try a variety of keys to be resilient to backend naming
       final courseId   = first == null ? null : _pickStr(first, ['course', 'course_id', 'courseId', 'course_pk', 'course_uuid']);
       final courseName = first == null ? null : _pickStr(first, ['course_title', 'courseName', 'course_label', 'title', 'name']);
       final lessonId   = first == null ? null : _pickStr(first, ['lesson', 'lesson_id', 'lessonId', 'object_id', 'pk', 'id']);
@@ -291,7 +411,6 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      // Fallback: open the course content if we at least have a course
       if (courseId != null) {
         if (!mounted) return;
         Navigator.of(context).pushNamed(
@@ -305,7 +424,6 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      // Last fallback: use a local unlocked course (from HomeData)
       if (fallbackCourse != null) {
         if (!mounted) return;
         Navigator.of(context).pushNamed(
@@ -319,11 +437,9 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      // If absolutely nothing worked, open catalog.
       if (!mounted) return;
       Navigator.of(context).pushNamed(AppRoutes.catalog);
     } catch (_) {
-      // Graceful fallback flows
       if (fallbackCourse != null && mounted) {
         Navigator.of(context).pushNamed(
           AppRoutes.courseContent,
@@ -352,9 +468,25 @@ class _HomePageState extends State<HomePage> {
           final hasError = snap.hasError;
           final data = snap.data;
 
-          // ✅ Unified fallbacks priority: repo -> widget args -> Firebase -> defaults
-          final resolvedName  = _firstNonEmpty([data?.studentName, widget.studentName, _fbName], 'اسم الطالب');
-          final resolvedGrade = _firstNonEmpty([data?.studentGrade, widget.studentGrade, _fbGrade], 'الصف السادس');
+          // --- Resolve name
+          final resolvedName = _firstNonEmpty(
+            [_nameFromAuth, widget.studentName, data?.studentName],
+            'اسم الطالب',
+          );
+
+          // --- Resolve grade (never blank)
+          final rawGrade = _firstNonEmpty(
+            [_gradeFromAuthOrProfile, widget.studentGrade, data?.studentGrade],
+            '',
+          );
+          final resolvedGrade =
+              rawGrade.isNotEmpty
+                  ? rawGrade
+                  : (_pendingGradeIdForUi != null
+                      ? (_gradeCatalog[_pendingGradeIdForUi!] ??
+                         _gradeFallback[_pendingGradeIdForUi!] ??
+                         'الصف ${_pendingGradeIdForUi!}')
+                      : 'الصف');
 
           return Scaffold(
             backgroundColor: Palette.pageBackground,
@@ -378,13 +510,11 @@ class _HomePageState extends State<HomePage> {
                       builder: (context, c) {
                         final isWide = c.maxWidth >= 1100;
 
-                        // Skeleton while loading
                         if (isLoading && data == null) {
                           return _SkeletonHome(isWide: isWide);
                         }
 
                         final d = data!;
-                        // pick a sensible unlocked course as a fallback
                         Course? fallbackCourse;
                         try {
                           fallbackCourse = d.courses.firstWhere((c) => !c.locked);
@@ -402,7 +532,7 @@ class _HomePageState extends State<HomePage> {
                                 spacing: 28,
                                 runSpacing: 28,
                                 children: [
-                                  // ===== Column A (visually right in RTL) =====
+                                  // ===== Column A =====
                                   SizedBox(
                                     width: isWide ? 440 : c.maxWidth,
                                     child: Column(
@@ -418,15 +548,21 @@ class _HomePageState extends State<HomePage> {
                                               defaultGrade: resolvedGrade,
                                               fallbackCourse: fallbackCourse,
                                             ),
+                                            // ✅ FIX: open grades for a real course, not hard-coded math
                                             onShowGrades: () {
-                                              Navigator.of(context).pushNamed(
-                                                AppRoutes.grades,
-                                                arguments: const CourseGradesArgs(
-                                                  courseId: 'demo-math-g9',
-                                                  courseTitle: 'الرياضيات',
-                                                  gradeLabel: 'الصف التاسع',
-                                                ),
-                                              );
+                                              final target = fallbackCourse ?? (d.courses.isNotEmpty ? d.courses.first : null);
+                                              if (target != null) {
+                                                Navigator.of(context).pushNamed(
+                                                  AppRoutes.grades,
+                                                  arguments: CourseGradesArgs(
+                                                    courseId: target.id,
+                                                    courseTitle: _titleOnly(target.title),
+                                                    gradeLabel: _gradeOnly(target.title) ?? resolvedGrade,
+                                                  ),
+                                                );
+                                              } else {
+                                                Navigator.of(context).pushNamed(AppRoutes.catalog);
+                                              }
                                             },
                                           ),
                                         ),
@@ -437,7 +573,6 @@ class _HomePageState extends State<HomePage> {
                                           child: _RecentActivityList(
                                             items: d.recent,
                                             onTapItem: (a) {
-                                              // If you later include IDs in Activity, you can navigate here as well.
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 SnackBar(content: Text('فتح: ${a.title}')),
                                               );
@@ -448,7 +583,7 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ),
 
-                                  // ===== Column B (visually left in RTL) =====
+                                  // ===== Column B =====
                                   SizedBox(
                                     width: isWide ? (1400 - 440 - 28) : c.maxWidth,
                                     child: _SectionCard(
@@ -610,7 +745,7 @@ class _AccountHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  grade,
+                  grade.isEmpty ? 'الصف' : grade, // extra safety
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -663,7 +798,6 @@ class _ProgressSummary extends StatelessWidget {
   final int totalLessons;
   final VoidCallback? onShowGrades;
 
-  // NEW:
   final VoidCallback? onResumeLastLesson;
   final bool isResuming;
 
@@ -696,8 +830,7 @@ class _ProgressSummary extends StatelessWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            Text('إجمالي التقدم: $percentText',
-                style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text('إجمالي التقدم: $percentText', style: const TextStyle(fontWeight: FontWeight.w700)),
             const Spacer(),
             Text('الدروس المكتملة: $completedLessons / $totalLessons',
                 style: const TextStyle(color: Palette.subtitle)),

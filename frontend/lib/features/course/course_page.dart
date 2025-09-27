@@ -1,4 +1,3 @@
-// lib/features/course/course_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/palette.dart';
@@ -25,7 +24,8 @@ class CourseOverview {
   final String title;
   final String gradeLabel;
   final String description;
-  final List<({String period, IconData? trailing, List<String> items})> schedule;  final List<String> syllabus;
+  final List<({String period, IconData? trailing, List<String> items})> schedule;
+  final List<String> syllabus;
   final List<CourseMember> members;
   final List<GradeRow> grades;
 
@@ -59,7 +59,7 @@ class CourseOverview {
       members: members ?? this.members,
       grades: grades ?? this.grades,
     );
-    }
+  }
 }
 
 /// Contract for backend
@@ -70,24 +70,47 @@ abstract class CourseRepository {
 /// Working fake so the page is fully functional today.
 /// Swap with a real API implementation later.
 class FakeCourseRepository implements CourseRepository {
+  String _titleFromId(String id) {
+    final s = id.toLowerCase();
+    if (s.contains('science')) return 'العلوم';
+    if (s.contains('arabic')) return 'اللغة العربية';
+    if (s.contains('english')) return 'اللغة الإنجليزية';
+    if (s.contains('history')) return 'التاريخ';
+    if (s.contains('geo')) return 'الجغرافيا';
+    if (s.contains('digital') || s.contains('computer') || s.contains('skills')) {
+      return 'المهارات الرقمية';
+    }
+    return 'الرياضيات';
+  }
+
+  String _gradeFromId(String id) {
+    final m = RegExp(r'g(\d{1,2})', caseSensitive: false).firstMatch(id);
+    if (m != null) return 'الصف ${m.group(1)}';
+    final n = RegExp(r'(\d{1,2})').firstMatch(id);
+    if (n != null) return 'الصف ${n.group(1)}';
+    return 'الصف';
+  }
+
   @override
   Future<CourseOverview> fetchCourse(String courseId) async {
     await Future<void>.delayed(const Duration(milliseconds: 350));
+    final title = _titleFromId(courseId);
+    final grade = _gradeFromId(courseId);
+
     return CourseOverview(
       id: courseId,
-      title: 'الرياضيات',
-      gradeLabel: 'الصف التاسع',
+      title: title,
+      gradeLabel: grade,
       description:
           'هذه صفحة المساق. هنا ستجد الوصف المختصر والخطة الدراسية والأعضاء والدرجات.',
       schedule: const [
-  (period: '1 أيلول - 7 أيلول', trailing: Icons.edit_note_rounded, items: ['اختبار قصير']),
-  (period: '8 أيلول - 14 أيلول', trailing: Icons.videocam_rounded, items: ['حصة زوم']),
-  (period: '15 أيلول - 21 أيلول', trailing: null, items: []),
-  (period: '21 أيلول - 28 أيلول', trailing: null, items: []),
-  (period: '29 أيلول - 5 تشرين أول', trailing: null, items: []),
-  (period: '6 تشرين أول - 13 تشرين أول', trailing: null, items: []),
-],
-
+        (period: '1 أيلول - 7 أيلول', trailing: Icons.edit_note_rounded, items: ['اختبار قصير']),
+        (period: '8 أيلول - 14 أيلول', trailing: Icons.videocam_rounded, items: ['حصة زوم']),
+        (period: '15 أيلول - 21 أيلول', trailing: null, items: []),
+        (period: '21 أيلول - 28 أيلول', trailing: null, items: []),
+        (period: '29 أيلول - 5 تشرين أول', trailing: null, items: []),
+        (period: '6 تشرين أول - 13 تشرين أول', trailing: null, items: []),
+      ],
       syllabus: const [
         'تعريف بالأعداد الصحيحة والكسور',
         'الجمع والطرح والضرب والقسمة',
@@ -114,6 +137,8 @@ class FakeCourseRepository implements CourseRepository {
 /* ======================= Course Page ======================= */
 
 class CoursePage extends StatefulWidget {
+  /// If you navigate with a builder and pass props, these are used.
+  /// If you navigate with pushNamed + arguments, the page now reads them, too.
   final String courseTitle;
   final String gradeLabel;
   final String courseId; // important for backend lookups
@@ -133,19 +158,56 @@ class CoursePage extends StatefulWidget {
 
 class _CoursePageState extends State<CoursePage> {
   late final CourseRepository _repo = widget.repository ?? FakeCourseRepository();
-  late Future<CourseOverview> _future;
+
+  // We keep local state so we can override with route arguments.
+  late String _courseId = widget.courseId;
+  late String _courseTitle = widget.courseTitle;
+  late String _gradeLabel = widget.gradeLabel;
+
+  Future<CourseOverview>? _future;
+  bool _bootstrapped = false;
 
   @override
-  void initState() {
-    super.initState();
-    _future = _repo.fetchCourse(widget.courseId);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_bootstrapped) return;
+
+    // Accept either CourseContentArgs or a plain Map from pushNamed.
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is CourseContentArgs) {
+      _courseId = args.courseId;
+      _courseTitle = args.courseTitle;
+      _gradeLabel = args.gradeLabel;
+    } else if (args is Map) {
+      _courseId = (args['courseId'] as String?)?.trim().isNotEmpty == true
+          ? (args['courseId'] as String).trim()
+          : _courseId;
+      _courseTitle = (args['courseTitle'] as String?)?.trim().isNotEmpty == true
+          ? (args['courseTitle'] as String).trim()
+          : _courseTitle;
+      _gradeLabel = (args['gradeLabel'] as String?)?.trim().isNotEmpty == true
+          ? (args['gradeLabel'] as String).trim()
+          : _gradeLabel;
+    }
+
+    _future = _repo.fetchCourse(_courseId);
+    _bootstrapped = true;
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _future = _repo.fetchCourse(widget.courseId);
+      _future = _repo.fetchCourse(_courseId);
     });
     await _future;
+  }
+
+  IconData _bannerIconFor(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('علم')) return Icons.science_rounded;
+    if (t.contains('عربي')) return Icons.menu_book_rounded;
+    if (t.contains('إنجليز') || t.contains('english')) return Icons.translate_rounded;
+    if (t.contains('مهار') || t.contains('رقمي') || t.contains('حاسوب')) return Icons.computer_rounded;
+    return Icons.calculate_rounded;
   }
 
   @override
@@ -161,6 +223,10 @@ class _CoursePageState extends State<CoursePage> {
             final hasError = snap.hasError;
             final data = snap.data;
 
+            // Prefer repo values if they are meaningful; otherwise keep the passed-in ones.
+            final shownTitle = (data != null && data.title.trim().isNotEmpty) ? data.title : _courseTitle;
+            final shownGrade = (data != null && data.gradeLabel.trim().isNotEmpty) ? data.gradeLabel : _gradeLabel;
+
             return Scaffold(
               backgroundColor: Palette.pageBackground,
               appBar: SiteAppBar(
@@ -168,7 +234,7 @@ class _CoursePageState extends State<CoursePage> {
                 showAuthButtons: false,
                 actions: const [],
                 centerTitle: const Text(
-                  'الصفحة الرئيسية',
+                  'المساق',
                   style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -182,15 +248,16 @@ class _CoursePageState extends State<CoursePage> {
                             const _BannerSkeleton()
                           else
                             _CourseBanner(
-                              title: data?.title ?? widget.courseTitle,
-                              subtitle: data?.gradeLabel ?? widget.gradeLabel,
+                              title: shownTitle,
+                              subtitle: shownGrade,
+                              icon: _bannerIconFor(shownTitle),
                               onStart: () {
                                 Navigator.of(context).pushNamed(
                                   AppRoutes.courseContent,
                                   arguments: CourseContentArgs(
-                                    courseId: widget.courseId,
-                                    courseTitle: data?.title ?? widget.courseTitle,
-                                    gradeLabel: data?.gradeLabel ?? widget.gradeLabel,
+                                    courseId: _courseId,
+                                    courseTitle: shownTitle,
+                                    gradeLabel: shownGrade,
                                   ),
                                 );
                               },
@@ -198,9 +265,9 @@ class _CoursePageState extends State<CoursePage> {
                                 Navigator.of(context).pushNamed(
                                   AppRoutes.grades,
                                   arguments: CourseGradesArgs(
-                                    courseId: widget.courseId,
-                                    courseTitle: data?.title ?? widget.courseTitle,
-                                    gradeLabel: data?.gradeLabel ?? widget.gradeLabel,
+                                    courseId: _courseId,
+                                    courseTitle: shownTitle,
+                                    gradeLabel: shownGrade,
                                   ),
                                 );
                               },
@@ -236,12 +303,14 @@ class _CoursePageState extends State<CoursePage> {
 class _CourseBanner extends StatelessWidget {
   final String title;
   final String subtitle;
+  final IconData icon;
   final VoidCallback? onStart;
   final VoidCallback? onGrades;
 
   const _CourseBanner({
     required this.title,
     required this.subtitle,
+    required this.icon,
     this.onStart,
     this.onGrades,
   });
@@ -273,7 +342,7 @@ class _CourseBanner extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            const Icon(Icons.calculate_rounded, size: 48, color: Colors.black87),
+            Icon(icon, size: 48, color: Colors.black87),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -481,7 +550,7 @@ class _GradesTab extends StatelessWidget {
           ],
         ),
         child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal, // prevents overflow on small screens
+          scrollDirection: Axis.horizontal,
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(Palette.primary.withOpacity(.18)),
             columns: const [
