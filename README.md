@@ -56,14 +56,13 @@ The platform combines **Django REST Framework** as the backend with a **Flutter 
     - `learning` → courses, lessons, materials  
     - `progress` → progress tracking & performance  
     - `quizzes` → lesson quizzes & results  
-  - Built using Django’s **MVT pattern** (without templates — API only)  
+  - Built using Django’s **MVT pattern** (without templates — API only)
+- **Admin**  
+  - Django Admin Panel used for quick course and material management 
 
 - **Frontend (Flutter Web)**  
   - Connects to Django REST API  
-  - Handles authentication via Firebase  
-
-- **Admin**  
-  - Django Admin Panel used for quick course and material management  
+  - Handles authentication via Firebase   
 ---
 ## 👥 Team Roles
 
