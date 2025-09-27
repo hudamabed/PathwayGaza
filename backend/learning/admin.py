@@ -6,7 +6,7 @@ from .models import Grade, Course, Lesson, Unit
 class LessonInline(admin.TabularInline):
     model = Lesson
     extra = 1  # how many blank lessons to show by default
-    fields = ("order", "title", "document_link")
+    fields = ("order", "title", "estimated_time", "document_link")
     ordering = ("order",)
 
 
